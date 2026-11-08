@@ -117,8 +117,8 @@ has finished in `on_application_shutdown`.
 
 - **Feature modules and platform modules.** Each feature (tasks, identity) is
   a module in `src/bustan_sample/modules/`. Each shared service with no routes
-  (clock, database, events, jobs, mail, health, rate limits, request logs) is
-  a module in `src/bustan_sample/platform/`. The platform never imports a
+  (clock, database, events, idempotency keys, jobs, mail, health, rate limits,
+  request logs) is a module in `src/bustan_sample/platform/`. The platform never imports a
   feature. A feature can import the platform, and only the public names of
   another feature.
 - **Explicit imports over global modules.** A feature imports `ClockModule`

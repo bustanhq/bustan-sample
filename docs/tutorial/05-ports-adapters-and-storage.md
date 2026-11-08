@@ -4,6 +4,7 @@
 
 - How two adapters implement one port, and how the configuration selects one.
 - How the SQLite backend works: one connection, a lock, WAL mode.
+- How a transaction makes the writes of one use case one unit of work.
 - How versioned migrations change a table safely.
 - How a contract test keeps two adapters in agreement.
 
@@ -19,6 +20,7 @@ Each storage port has two adapters in `infra/`:
 | `UserRepository` | `InMemoryUserRepository` | `SqliteUserRepository` |
 | `RevokedTokenRepository` | `InMemoryRevokedTokenRepository` | `SqliteRevokedTokenRepository` |
 | `JobQueue` (platform) | `InMemoryJobQueue` | `SqliteJobQueue` |
+| `IdempotencyKeys` (platform) | `InMemoryIdempotencyKeys` | `SqliteIdempotencyKeys` |
 
 The memory adapters need no setup and lose their data on a restart. The SQLite
 adapters keep the data, and several processes on one host can share the file.
@@ -56,6 +58,42 @@ process:
   lock at once, and rolls back if the block raises an error.
 - **Time as text.** `to_text()` writes each time as UTC text with the same
   length, so the text order of a column is the time order.
+
+### One unit of work
+
+A use case often writes more than one row: a task and its next task, or a
+user and the event that tells the other modules. These writes must commit
+together, or not at all. `transaction()` makes the block one unit of work:
+
+```python
+async with self._database.transaction():
+    task = await self._repository.get(command.owner_id, command.task_id)
+    ...
+    await self._repository.save(task)
+    await self._repository.save(next_task)
+```
+
+The repositories do not get a connection or a session as an argument. Each
+statement of the same asyncio task joins the open transaction: the database
+keeps the transaction in a context variable of the task. A nested
+`transaction()` joins the outer one. A different task, for example a job
+worker, waits for the lock until the transaction ends.
+
+Two callbacks let a component act on the result:
+
+- `after_commit(callback)` runs the callback after the commit, or
+  immediately outside a transaction. The job queue uses it to wake its
+  workers, and the memory event bus to start the listeners.
+- `after_rollback(callback)` runs the callback after a rollback. The memory
+  adapter of the idempotency keys uses it to remove a key again.
+
+Keep the block short. It keeps the one connection of the process, so do the
+slow work before the block: `RegisterUserHandler` hashes the password first,
+and `UpdateTaskHandler` parses the repeat phrase first.
+
+The memory backend has no rollback. With it, `transaction()` only defers the
+events and the jobs of the block until the end of the block, and drops them
+if the block raises an error. Use SQLite when a test must prove a rollback.
 
 ### Versioned migrations
 
@@ -126,6 +164,11 @@ adapter sorts differently from the memory adapter, a test fails.
   statements of a process in one line, which is enough for this service and
   not for a heavy load. For more hosts or more load, the same ports can take a
   PostgreSQL adapter.
+- **A context variable, not a session argument.** The repositories join the
+  transaction of their task with no change to their signatures. The port
+  stays free of database types, and the memory adapters ignore the
+  transaction. The cost: a block must not wait for a different task that
+  uses the database, or the two tasks wait for each other.
 - **The owner id in each read.** `get(owner_id, task_id)` and
   `find(owner_id, ...)` make it impossible to read the task of a different
   user by mistake.
@@ -135,5 +178,6 @@ adapter sorts differently from the memory adapter, a test fails.
 1. A handler asks for `TaskRepository`. What decides which class it gets?
 2. Why does the record of a migration go in before the migration itself?
 3. What does a contract test protect that a test of one adapter cannot?
+4. Why does `RegisterUserHandler` hash the password before the transaction?
 
 Next: [6. Identity and security](06-identity-and-security.md).

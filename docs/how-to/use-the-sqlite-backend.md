@@ -26,8 +26,9 @@
 | Tasks | `tasks` |
 | Users | `users` |
 | Revoked token ids | `revoked_tokens` |
-| Jobs and event deliveries | `jobs` |
+| Jobs and event deliveries (the outbox) | `jobs` |
 | Claimed schedule runs | `schedule_runs` |
+| Idempotency keys | `idempotency_keys` |
 | Rate-limit counts | `throttle_hits` |
 
 ## More than one process

@@ -13,10 +13,10 @@
 | Limit | Why it is acceptable here | The next step |
 |---|---|---|
 | SQLite on one host | One file, no server, shared by processes on one host | A PostgreSQL adapter for each storage port; the ports do not change |
-| One connection for each process | Simple and correct | A connection pool in the database adapter |
-| An event can be lost between the save and the publish | Only the starter task and the email depend on it | A transactional outbox: write the event in the same transaction as the data |
-| A job or an event can run two times | The handlers are idempotent | Keep idempotency keys for work that must happen once |
-| The memory backend runs one process | It is for development and tests | Use SQLite or a database server in each deployment |
+| One connection for each process | Simple and correct. A transaction keeps it, so units of work are short | A connection pool in the database adapter, with the transaction kept on its connection |
+| An email can go two times | Only if the process stops between the send and the key | A mail provider that accepts an idempotency key of its own |
+| The idempotency keys stay in the table | One row for each user and each kind of work | A scheduled purge of the keys that are older than the longest retry window |
+| The memory backend runs one process and has no rollback | It is for development and tests. Its transaction still defers the events and the jobs | Use SQLite or a database server in each deployment |
 | Two applications in one process share the rate-limit storage | The server and the tests run one at a time | A storage that bustan can inject at startup |
 | No refresh token | A login each 15 minutes is acceptable for a sample | Refresh tokens with rotation, kept like the revocation list |
 | English repeat phrases only | The grammar is small and testable | A model adapter behind `RecurrenceParser` |
@@ -44,6 +44,8 @@ The code works around these. They are filed upstream:
 - Each outside thing is a port with adapters. Storage ports have a memory and
   an SQLite adapter, and a contract test.
 - A listener subscribes and a job registers in its own `on_module_init`.
+- An event goes out in the transaction of its data. Work that must happen one
+  time keeps an idempotency key.
 - A schema change is a new migration, never an edit of an old one.
 - The OpenAPI document, the hooks and CI keep the code and its description in
   agreement.
@@ -68,8 +70,10 @@ list; each item points to the chapter that taught it.
    the tasks table, a field in the schemas, and a filter `?project_id=` on
    `GET /tasks`. The tasks module must not import the internals of projects:
    keep only the id, as tasks keeps only the owner id.
-6. **An event (ch. 7).** When a project is deleted, publish `ProjectDeleted`.
-   In the tasks module, a listener removes the project id from its tasks.
+6. **An event (ch. 7).** When a project is deleted, publish `ProjectDeleted`
+   in the transaction of the delete. In the tasks module, a listener removes
+   the project id from its tasks. A second run of that listener changes
+   nothing, so it needs no idempotency key.
 7. **A schedule (ch. 7).** Each night at 02:00 UTC, a job writes the number of
    projects of each user to the log.
 8. **Tests (ch. 8).** Domain, contract, handler, listener and HTTP tests, on
@@ -84,4 +88,5 @@ colleague, you have mastered the design of this repository.
 
 1. Which file changes first if the service moves from SQLite to PostgreSQL?
 2. Why does the tasks module keep only `project_id`, and not a `Project`?
-3. What would you need for an event that must never be lost?
+3. A listener charges a card. Which pattern of chapter 7 does it need, and
+   what risk remains?

@@ -95,6 +95,7 @@ src/bustan_sample/
     database/
     events/
     health/
+    idempotency/
     jobs/
     mail/
     request_logging/
@@ -208,7 +209,11 @@ The recurrence of tasks is the example:
   change a table, add a migration with the next version. Never change a
   migration that a release contains. The adapter holds its SQL.
 - Use `Database.transaction()` for statements that must all commit, or
-  none.
+  none. In the block, each statement of the same task joins the
+  transaction: the repositories, the job queue and the event bus. Do slow
+  work, for example a password hash or a network call, before the block.
+- The memory backend has no rollback. Its `transaction()` only defers the
+  events and the jobs of the block until the end of the block.
 - Keep a time as UTC text that always has the same length (`to_text()`).
   Thus the text order is the time order.
 - The two adapters of a port must give the same results. A contract test
@@ -217,8 +222,18 @@ The recurrence of tasks is the example:
 ### Events
 
 - An event is a frozen dataclass in `domain/events.py`.
-- An application handler publishes an event after it saves:
-  `await events.publish(UserRegistered(...))`.
+- An application handler publishes an event in the transaction that saves
+  the data. Thus the data and the event commit together, or neither:
+
+  ```python
+  async with self._database.transaction():
+      await self._users.save(user)
+      await self._events.publish(UserRegistered(user.id, user.email, user.created_at))
+  ```
+
+- With SQLite, the deliveries are rows in the table `jobs`, written in the
+  transaction of the publisher: the table is the transactional outbox. The
+  listeners run after the commit. A rollback drops the event.
 - A listener subscribes in its own `on_module_init`. Thus a new listener is
   one line in `providers`.
 - Each listener runs in a background task, and the response does not wait.
@@ -244,6 +259,15 @@ The recurrence of tasks is the example:
 - If a process stops during a job, a different worker starts the job again
   after `JOBS_LEASE_SECONDS`. Thus a job handler must give the same result
   if it runs two times.
+- An enqueue in a transaction commits with the transaction. The job does not
+  start before the commit.
+- For work that must happen one time, keep an idempotency key
+  (`IdempotencyKeys`). Name the key with the module and the work, for
+  example `tasks.starter_task:<user id>`.
+  - Database work: add the key and do the work in one transaction. Do the
+    work only if `add()` returns `True`.
+  - External work, for example an email: stop if `contains()` returns
+    `True`. Do the work, then add the key.
 - `ScheduleLock` lets only one process enqueue each run of a schedule.
   `JOBS_SCHEDULER_ENABLED=false` turns the scheduler off in a process.
 
@@ -256,8 +280,9 @@ knows no feature module.
 | Module | Providers |
 |---|---|
 | `clock` | `Clock`, and `FixedClock` for tests |
-| `database` | `Database`: the SQLite connection, if the backend is `sqlite` |
-| `events` | `EventBus` |
+| `database` | `Database`: the SQLite connection, if the backend is `sqlite`, and `transaction()` with `after_commit()` and `after_rollback()` |
+| `events` | `EventBus`: with SQLite, the deliveries go in the table `jobs`, in the transaction of the publisher |
+| `idempotency` | `IdempotencyKeys` (port), `InMemoryIdempotencyKeys`, `SqliteIdempotencyKeys` |
 | `jobs` | `JobQueue` (port), `InMemoryJobQueue`, `SqliteJobQueue`, `JobScheduler`, `ScheduleLock` (port), `InMemoryScheduleLock`, `SqliteScheduleLock` |
 | `mail` | `Mailer` (port), `LogMailer` |
 | `health` | `DatabaseIndicator` and `HealthChecks`: the readiness check of SQLite |
