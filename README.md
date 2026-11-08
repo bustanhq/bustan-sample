@@ -376,3 +376,7 @@ knows no feature module.
 - Two applications in one process share the rate-limit storage. Run one
   application at a time in a process.
 - The rule-based parser knows only English repeat phrases.
+
+## License
+
+Apache License 2.0. See [LICENSE](LICENSE).

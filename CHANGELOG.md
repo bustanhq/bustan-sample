@@ -32,3 +32,4 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Container image on Chainguard bases, with no shell, a non-root user, a volume for SQLite and a health check.
 - lefthook hooks, CI, release workflow and Dependabot.
 - A tutorial in ten chapters, from the first request to the trade-offs of the design.
+- The Apache License 2.0, in `LICENSE` and in the package metadata.

@@ -3,6 +3,8 @@ name = "bustan-sample"
 version = "0.1.0"
 description = "A sample bustan API: tasks with recurrence, JWT identity, events, jobs, memory or SQLite storage"
 readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 authors = [
     { name = "mosesgameli", email = "mosesgameli20@gmail.com" }
 ]

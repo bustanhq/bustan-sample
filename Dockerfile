@@ -22,8 +22,8 @@ ENV UV_COMPILE_BYTECODE=1 \
 WORKDIR /app
 
 # The dependencies first, thus a change to the source does not install them
-# again. README.md is necessary because pyproject.toml names it.
-COPY pyproject.toml uv.lock README.md ./
+# again. README.md and LICENSE are necessary because pyproject.toml names them.
+COPY pyproject.toml uv.lock README.md LICENSE ./
 RUN uv sync --frozen --no-install-project --no-dev
 
 COPY src ./src

@@ -1,4 +1,4 @@
-# The image gets only pyproject.toml, uv.lock, README.md and src/. A local
+# The image gets only pyproject.toml, uv.lock, README.md, LICENSE and src/. A local
 # .env with a secret must never go into a layer of the image.
 .env
 .env.*
