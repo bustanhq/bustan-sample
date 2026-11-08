@@ -377,6 +377,21 @@ knows no feature module.
   application at a time in a process.
 - The rule-based parser knows only English repeat phrases.
 
+## Agent skill
+
+`.agents/skills/bustan-dev/` is an agent skill for bustan projects. It gives
+the rules of this repository and recipes for each kind of change. It also
+has three scripts. Each script prints its usage with `--help`.
+
+- `audit.py` examines the layout, the imports and the names of a project.
+- `new_module.py` writes a feature module with its tests.
+- `copy_platform.py` copies the platform modules into a new project.
+
+Agent tools that read `.agents/skills/` find the skill there. For Claude Code,
+link `.claude/skills` to `../.agents/skills`. To use the skill in other
+projects, link its folder into the skill folder of your tool. Change the
+skill in the same commit as the code that it describes.
+
 ## License
 
 Apache License 2.0. See [LICENSE](LICENSE).

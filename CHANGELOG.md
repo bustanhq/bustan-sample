@@ -33,3 +33,4 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - lefthook hooks, CI, release workflow and Dependabot.
 - A tutorial in ten chapters, from the first request to the trade-offs of the design.
 - The Apache License 2.0, in `LICENSE` and in the package metadata.
+- The agent skill `bustan-dev` in `.agents/skills/`: the rules, the recipes and three scripts to build a bustan project like this one.

@@ -15,6 +15,8 @@ Start the [tutorial](tutorial/README.md) to learn the design step by step.
 - [Configuration](reference/configuration.md): each environment variable.
 - [Tooling](reference/tooling.md): the commands, the hooks, CI and the release workflow.
 - [API](../openapi.yaml): the OpenAPI document, made from the code.
+- [Agent skill](../.agents/skills/bustan-dev/SKILL.md): the rules, recipes and
+  scripts for bustan projects.
 
 ## Tutorial
 
