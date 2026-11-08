@@ -10,13 +10,16 @@ from .application.delete_task_command import DeleteTaskHandler
 from .application.get_task_query import GetTaskHandler
 from .application.list_tasks_query import ListTasksHandler
 from .application.update_task_command import UpdateTaskHandler
+from .domain.recurrence_parser import RecurrenceParser
 from .domain.task_repository import TaskRepository
 from .infra.in_memory_task_repository import InMemoryTaskRepository
+from .infra.rule_based_recurrence_parser import RuleBasedRecurrenceParser
 from .listeners.on_user_registered import OnUserRegistered
 
 
-# The module binds the storage port of the domain to an adapter of the infra
-# layer. To use a database, bind TaskRepository to a different class here.
+# The module binds each port of the domain to an adapter of the infra layer.
+# To use a database, bind TaskRepository to a different class here. To parse
+# repeat phrases with a model, bind RecurrenceParser to a model adapter.
 # IdentityModule gives the authenticator for @Auth("bearer") on the controller.
 # OnUserRegistered subscribes to the event of identity in its on_module_init.
 @Module(
@@ -24,6 +27,7 @@ from .listeners.on_user_registered import OnUserRegistered
     controllers=[TasksController],
     providers=[
         ClassProvider(provide=TaskRepository, use_class=InMemoryTaskRepository),
+        ClassProvider(provide=RecurrenceParser, use_class=RuleBasedRecurrenceParser),
         CreateTaskHandler,
         UpdateTaskHandler,
         DeleteTaskHandler,

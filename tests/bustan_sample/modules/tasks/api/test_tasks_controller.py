@@ -123,3 +123,61 @@ def test_a_user_cannot_see_or_change_the_tasks_of_another_user(
     assert client.patch(path, headers=bob, json={"status": "done"}).status_code == 404
     assert client.delete(path, headers=bob).status_code == 404
     assert client.get(path, headers=ada).json()["status"] == "todo"
+
+
+def test_a_repeat_phrase_is_stored_as_a_rule_and_given_back_in_one_form(
+    client: AsgiTestClient, sign_up: SignUp
+) -> None:
+    ada = sign_up("ada@example.com")
+    response = client.post(
+        "/tasks",
+        headers=ada,
+        json={"title": "report", "due_on": "2026-02-02", "repeat": "Fortnightly"},
+    )
+    assert response.status_code == 201
+    assert response.json()["repeat"] == "every 2 weeks"
+
+
+def test_a_bad_repeat_or_a_repeat_with_no_due_date_returns_400(
+    client: AsgiTestClient, sign_up: SignUp
+) -> None:
+    ada = sign_up("ada@example.com")
+    unknown = client.post(
+        "/tasks",
+        headers=ada,
+        json={"title": "a", "due_on": "2026-02-02", "repeat": "now and then"},
+    )
+    no_due_date = client.post(
+        "/tasks", headers=ada, json={"title": "a", "repeat": "daily"}
+    )
+    assert unknown.status_code == no_due_date.status_code == 400
+    assert "not known" in unknown.json()["detail"]
+    assert "due date" in no_due_date.json()["detail"]
+
+
+def test_done_on_a_recurring_task_adds_the_next_task(
+    client: AsgiTestClient, sign_up: SignUp
+) -> None:
+    ada = sign_up("ada@example.com")
+    task = client.post(
+        "/tasks",
+        headers=ada,
+        json={"title": "rent", "due_on": "2026-01-31", "repeat": "monthly"},
+    ).json()
+    client.patch(f"/tasks/{task['id']}", headers=ada, json={"status": "done"})
+    todo = client.get("/tasks", headers=ada, params={"status": "todo"}).json()
+    rent = [t for t in todo if t["title"] == "rent"]
+    assert [(t["due_on"], t["repeat"]) for t in rent] == [("2026-02-28", "every month")]
+
+
+def test_patch_with_null_repeat_stops_the_recurrence(
+    client: AsgiTestClient, sign_up: SignUp
+) -> None:
+    ada = sign_up("ada@example.com")
+    task = client.post(
+        "/tasks",
+        headers=ada,
+        json={"title": "a", "due_on": "2026-02-02", "repeat": "weekly"},
+    ).json()
+    response = client.patch(f"/tasks/{task['id']}", headers=ada, json={"repeat": None})
+    assert response.json()["repeat"] is None

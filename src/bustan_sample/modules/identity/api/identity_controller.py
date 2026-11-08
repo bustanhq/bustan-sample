@@ -1,6 +1,18 @@
 from typing import Annotated
 
-from bustan import Auth, Controller, Get, HttpResponse, Post, Public, UseFilters
+from bustan import (
+    ApiBearerAuth,
+    ApiOperation,
+    ApiResponse,
+    ApiTags,
+    Auth,
+    Controller,
+    Get,
+    HttpResponse,
+    Post,
+    Public,
+    UseFilters,
+)
 
 from ..application.get_current_user_query import (
     GetCurrentUserHandler,
@@ -19,10 +31,12 @@ from .identity_errors_filter import IdentityErrorsFilter
 from .identity_schemas import LogInRequest, RegisterRequest, TokenResponse, UserResponse
 
 
-# All routes need a token, except the two routes with @Public().
+# All routes need a token, except the two routes with @Public(). Thus only the
+# routes that need a token have @ApiBearerAuth() in the OpenAPI document.
 @UseFilters(IdentityErrorsFilter())
 @Controller("/identity")
 @Auth(STRATEGY)
+@ApiTags("identity")
 class IdentityController:
     def __init__(
         self,
@@ -38,6 +52,10 @@ class IdentityController:
 
     @Post("/register")
     @Public()
+    @ApiOperation(summary="Register a user")
+    @ApiResponse(status=201, description="The new user", schema=UserResponse)
+    @ApiResponse(status=400, description="The email or the password is not valid")
+    @ApiResponse(status=409, description="A user with this email exists")
     async def register(self, payload: RegisterRequest) -> HttpResponse:
         user = await self._register_user.execute(
             RegisterUserCommand(email=payload.email, password=payload.password)
@@ -48,6 +66,9 @@ class IdentityController:
 
     @Post("/login")
     @Public()
+    @ApiOperation(summary="Log in and get an access token")
+    @ApiResponse(status=200, description="A bearer token", schema=TokenResponse)
+    @ApiResponse(status=401, description="The email or the password is not correct")
     async def log_in(self, payload: LogInRequest) -> dict[str, object]:
         token = await self._log_in.execute(
             LogInCommand(email=payload.email, password=payload.password)
@@ -55,6 +76,10 @@ class IdentityController:
         return TokenResponse.from_token(token).to_json()
 
     @Post("/logout")
+    @ApiBearerAuth()
+    @ApiOperation(summary="Revoke the token of this request")
+    @ApiResponse(status=204, description="The token is revoked")
+    @ApiResponse(status=401, description="No valid token")
     async def log_out(self, user: Annotated[AuthenticatedUser, CurrentUser()]) -> None:
         # A handler that returns None answers 204 No Content.
         await self._log_out.execute(
@@ -64,6 +89,10 @@ class IdentityController:
         )
 
     @Get("/me")
+    @ApiBearerAuth()
+    @ApiOperation(summary="Get the user of the token")
+    @ApiResponse(status=200, description="The user", schema=UserResponse)
+    @ApiResponse(status=401, description="No valid token")
     async def me(
         self, user: Annotated[AuthenticatedUser, CurrentUser()]
     ) -> dict[str, object]:

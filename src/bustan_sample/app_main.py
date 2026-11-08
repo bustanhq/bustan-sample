@@ -5,6 +5,7 @@ import uvicorn
 from bustan import Application, create_app
 
 from .app_module import AppModule
+from .app_openapi import swagger_options
 
 HOST = "127.0.0.1"
 PORT = 3000
@@ -12,7 +13,7 @@ PORT = 3000
 
 def create_asgi_app() -> Application:
     """Return the application, which is itself the ASGI callable a server runs."""
-    return create_app(AppModule)
+    return create_app(AppModule, swagger=swagger_options())
 
 
 async def bootstrap() -> None:

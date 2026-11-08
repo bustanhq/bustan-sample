@@ -13,12 +13,14 @@ dependencies = [
     "pyjwt>=2.15.1",
     "argon2-cffi>=25.1.0",
     "croniter>=6.2.4",
+    "pyyaml>=6.0.3",
 ]
 
 [project.scripts]
 start = "bustan_sample.app_main:main"
 dev = "bustan_sample.app_main:dev"
 bustan-sample = "bustan_sample:main"
+bustan-sample-openapi = "bustan_sample.openapi_export:main"
 
 [build-system]
 requires = ["uv_build>=0.13.6,<0.14.0"]
@@ -30,6 +32,7 @@ dev = [
     "ruff",
     "ty",
     "types-croniter>=6.2.4.20261006",
+    "types-pyyaml>=6.0.12.20261103",
 ]
 
 [tool.pytest]
