@@ -3,8 +3,6 @@ from datetime import datetime
 
 from bustan import Injectable
 
-from bustan_sample.platform.clock import Clock
-
 from ..domain.revoked_token_repository import RevokedTokenRepository
 
 
@@ -18,11 +16,8 @@ class LogOutCommand:
 class LogOutHandler:
     """Revokes the access token of the request before it expires."""
 
-    def __init__(self, revoked: RevokedTokenRepository, clock: Clock) -> None:
+    def __init__(self, revoked: RevokedTokenRepository) -> None:
         self._revoked = revoked
-        self._clock = clock
 
     async def execute(self, command: LogOutCommand) -> None:
-        await self._revoked.revoke(
-            command.token_id, command.token_expires_at, self._clock.now()
-        )
+        await self._revoked.revoke(command.token_id, command.token_expires_at)

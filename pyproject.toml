@@ -12,6 +12,7 @@ dependencies = [
     "bustan[starlette]>=2.0.3",
     "pyjwt>=2.15.1",
     "argon2-cffi>=25.1.0",
+    "croniter>=6.2.4",
 ]
 
 [project.scripts]
@@ -24,4 +25,18 @@ requires = ["uv_build>=0.13.6,<0.14.0"]
 build-backend = "uv_build"
 
 [dependency-groups]
-dev = ["pytest", "ruff", "ty"]
+dev = [
+    "pytest",
+    "ruff",
+    "ty",
+    "types-croniter>=6.2.4.20261006",
+]
+
+[tool.pytest]
+testpaths = ["tests"]
+# The test folders mirror src/ and have no __init__.py file, thus two modules
+# can each have a test file with the same name (for example
+# test_on_user_registered.py). The importlib mode imports each test file from
+# its path. tests/ on sys.path makes tests/support importable.
+pythonpath = ["tests"]
+addopts = ["--import-mode=importlib"]

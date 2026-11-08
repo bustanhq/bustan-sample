@@ -17,11 +17,14 @@ class InMemoryRevokedTokenRepository(RevokedTokenRepository):
     def __init__(self) -> None:
         self._revoked: dict[str, datetime] = {}
 
-    async def revoke(self, token_id: str, expires_at: datetime, now: datetime) -> None:
-        self._revoked = {
-            key: expiry for key, expiry in self._revoked.items() if expiry > now
-        }
+    async def revoke(self, token_id: str, expires_at: datetime) -> None:
         self._revoked[token_id] = expires_at
 
     async def is_revoked(self, token_id: str) -> bool:
         return token_id in self._revoked
+
+    async def purge(self, now: datetime) -> int:
+        expired = [key for key, expiry in self._revoked.items() if expiry <= now]
+        for key in expired:
+            del self._revoked[key]
+        return len(expired)

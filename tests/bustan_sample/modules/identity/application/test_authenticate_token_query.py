@@ -58,7 +58,7 @@ def test_a_revoked_token_gives_none() -> None:
         setup = _Setup()
         ada = await setup.ada()
         token = setup.issuer.issue(ada.id, setup.clock.now())
-        await setup.revoked.revoke(token.token_id, token.expires_at, setup.clock.now())
+        await setup.revoked.revoke(token.token_id, token.expires_at)
         assert await setup.handler.execute(AuthenticateTokenQuery(token.value)) is None
 
     asyncio.run(scenario())

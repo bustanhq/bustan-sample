@@ -1,11 +1,43 @@
 from collections.abc import Callable
 
 from bustan.testing import AsgiTestClient
+from support.fakes import RecordingMailer, wait_until
 
+from bustan_sample.modules.identity.application.send_welcome_email_job import SUBJECT
 from bustan_sample.platform.clock import FixedClock
 
 SignUp = Callable[[str], dict[str, str]]
 PASSWORD = "a long password for the tests"
+
+
+def test_registration_sends_one_welcome_email_in_the_background(
+    client: AsgiTestClient, mailer: RecordingMailer
+) -> None:
+    # The route answers first. The event handler and the job send the email.
+    client.post(
+        "/identity/register", json={"email": "ada@example.com", "password": PASSWORD}
+    )
+    wait_until(lambda: len(mailer.sent) == 1)
+    [(to, subject, _)] = mailer.sent
+    assert (to, subject) == ("ada@example.com", SUBJECT)
+
+
+def test_a_refused_registration_sends_no_email(
+    client: AsgiTestClient, mailer: RecordingMailer
+) -> None:
+    client.post(
+        "/identity/register", json={"email": "ada@example.com", "password": "short"}
+    )
+    client.post(
+        "/identity/register", json={"email": "not-an-email", "password": PASSWORD}
+    )
+    # The queue is empty when the next route answers: the two refusals
+    # published nothing, thus nothing can arrive later.
+    client.post(
+        "/identity/register", json={"email": "bob@example.com", "password": PASSWORD}
+    )
+    wait_until(lambda: len(mailer.sent) >= 1)
+    assert [to for to, _, _ in mailer.sent] == ["bob@example.com"]
 
 
 def test_register_returns_201_without_the_password_hash(client: AsgiTestClient) -> None:

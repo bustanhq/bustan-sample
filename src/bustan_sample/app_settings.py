@@ -14,3 +14,6 @@ class AppSettings(BaseModel):
     IDENTITY_JWT_SECRET: str = Field(min_length=32)
     IDENTITY_JWT_ISSUER: str = Field(default="bustan-sample", min_length=1)
     IDENTITY_TOKEN_TTL_MINUTES: int = Field(default=15, ge=1, le=1440)
+
+    JOBS_WORKERS: int = Field(default=2, ge=1, le=32)
+    JOBS_RETRY_DELAY_SECONDS: float = Field(default=1.0, ge=0, le=300)

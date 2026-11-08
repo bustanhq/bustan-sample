@@ -1,6 +1,9 @@
 from bustan import AUTHENTICATOR_REGISTRY, ClassProvider, FactoryProvider, Module
 
 from bustan_sample.platform.clock import ClockModule
+from bustan_sample.platform.events import EventsModule
+from bustan_sample.platform.jobs import JobsModule
+from bustan_sample.platform.mail import MailModule
 
 from .api.bearer_authenticator import STRATEGY, BearerAuthenticator
 from .api.identity_controller import IdentityController
@@ -8,7 +11,10 @@ from .application.authenticate_token_query import AuthenticateTokenHandler
 from .application.get_current_user_query import GetCurrentUserHandler
 from .application.log_in_command import LogInHandler
 from .application.log_out_command import LogOutHandler
+from .application.on_user_registered import OnUserRegistered
+from .application.purge_revoked_tokens_job import PurgeRevokedTokensHandler
 from .application.register_user_command import RegisterUserHandler
+from .application.send_welcome_email_job import SendWelcomeEmailHandler
 from .domain.password_hasher import PasswordHasher
 from .domain.revoked_token_repository import RevokedTokenRepository
 from .domain.token_issuer import TokenIssuer
@@ -25,10 +31,13 @@ def _authenticators(bearer: BearerAuthenticator) -> dict[str, object]:
 
 # The module binds each domain port to an infra adapter. It exports the
 # authenticator registry: a module that imports IdentityModule can put
-# @Auth("bearer") on its routes. JwtTokenIssuer reads ConfigService, which the
-# global ConfigModule of the root module gives.
+# @Auth("bearer") on its routes. JwtTokenIssuer and the job queue read
+# ConfigService, which the global ConfigModule of the root module gives.
+#
+# The event handlers and the job handlers subscribe, register and schedule in
+# their on_module_init hooks. Thus each one is only a line in providers.
 @Module(
-    imports=[ClockModule],
+    imports=[ClockModule, EventsModule, JobsModule, MailModule],
     controllers=[IdentityController],
     providers=[
         ClassProvider(provide=UserRepository, use_class=InMemoryUserRepository),
@@ -42,6 +51,9 @@ def _authenticators(bearer: BearerAuthenticator) -> dict[str, object]:
         LogOutHandler,
         GetCurrentUserHandler,
         AuthenticateTokenHandler,
+        OnUserRegistered,
+        SendWelcomeEmailHandler,
+        PurgeRevokedTokensHandler,
         BearerAuthenticator,
         FactoryProvider(
             provide=AUTHENTICATOR_REGISTRY,

@@ -2,10 +2,20 @@ from collections.abc import Callable
 
 from bustan.testing import AsgiTestClient
 
+from bustan_sample.modules.tasks.application.on_user_registered import STARTER_TITLE
 from bustan_sample.platform.clock import FixedClock
 
 SignUp = Callable[[str], dict[str, str]]
 UNKNOWN_ID = "00000000-0000-0000-0000-000000000000"
+
+
+def test_a_new_user_gets_a_starter_task(
+    client: AsgiTestClient, sign_up: SignUp
+) -> None:
+    # sign_up waits for the event handler that adds the task in the background.
+    tasks = client.get("/tasks", headers=sign_up("ada@example.com")).json()
+    assert [task["title"] for task in tasks] == [STARTER_TITLE]
+    assert tasks[0]["status"] == "todo"
 
 
 def test_each_route_needs_a_token(client: AsgiTestClient) -> None:
@@ -51,7 +61,7 @@ def test_list_filters_on_the_status_query(
     client.patch(f"/tasks/{done['id']}", headers=ada, json={"status": "done"})
     everything = client.get("/tasks", headers=ada).json()
     only_done = client.get("/tasks", headers=ada, params={"status": "done"}).json()
-    assert [task["title"] for task in everything] == ["open", "done"]
+    assert [task["title"] for task in everything] == [STARTER_TITLE, "open", "done"]
     assert [task["title"] for task in only_done] == ["done"]
 
 
@@ -107,7 +117,8 @@ def test_a_user_cannot_see_or_change_the_tasks_of_another_user(
     ada, bob = sign_up("ada@example.com"), sign_up("bob@example.com")
     task = client.post("/tasks", headers=ada, json={"title": "private"}).json()
     path = f"/tasks/{task['id']}"
-    assert client.get("/tasks", headers=bob).json() == []
+    bob_tasks = client.get("/tasks", headers=bob).json()
+    assert [task["title"] for task in bob_tasks] == [STARTER_TITLE]
     assert client.get(path, headers=bob).status_code == 404
     assert client.patch(path, headers=bob, json={"status": "done"}).status_code == 404
     assert client.delete(path, headers=bob).status_code == 404
