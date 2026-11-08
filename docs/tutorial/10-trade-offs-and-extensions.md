@@ -14,7 +14,9 @@
 |---|---|---|
 | SQLite on one host | One file, no server, shared by processes on one host | A PostgreSQL adapter for each storage port; the ports do not change |
 | One connection for each process | Simple and correct. A transaction keeps it, so units of work are short | A connection pool in the database adapter, with the transaction kept on its connection |
-| An email can go two times | Only if the process stops between the send and the key | A mail provider that accepts an idempotency key of its own |
+| One mail provider | Resend accepts an idempotency key, thus a retry sends one email | An adapter for each other provider. A provider with no idempotency key brings back the duplicate case |
+| No `traceparent` on an external call | bustan 2.0.3 has no public function that gives it. The correlation id joins the logs | Send `traceparent` when bustan exports it |
+| No circuit breaker for external APIs | The job backoff and the failed jobs limit the load on a provider that is down | A breaker in `platform/http` for a call in the request path |
 | The idempotency keys stay in the table | One row for each user and each kind of work | A scheduled purge of the keys that are older than the longest retry window |
 | The memory backend runs one process and has no rollback | It is for development and tests. Its transaction still defers the events and the jobs | Use SQLite or a database server in each deployment |
 | Two applications in one process share the rate-limit storage | The server and the tests run one at a time | A storage that bustan can inject at startup |

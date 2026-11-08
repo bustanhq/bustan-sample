@@ -17,6 +17,9 @@ not start. A value in the environment overrides the value in `.env`.
 | `JOBS_POLL_SECONDS` | SQLite only: the time between two looks for the jobs of other processes | no | `0.5` |
 | `JOBS_LEASE_SECONDS` | SQLite only: the time after which a different worker can take a job that a stopped process did not end | no | `300` |
 | `JOBS_SCHEDULER_ENABLED` | `false` turns the cron scheduler off in this process | no | `true` |
+| `MAIL_BACKEND` | `log` writes a log record for each email. `resend` sends it through the Resend API | no | `log` |
+| `MAIL_FROM` | The sender address, for example `bustan-sample <noreply@example.com>`. Resend accepts only a verified domain | if `MAIL_BACKEND=resend` | none |
+| `MAIL_RESEND_API_KEY` | The Resend API key, with permission to send | if `MAIL_BACKEND=resend` | none |
 
 The command `bustan-sample-serve` also reads these variables. Its options
 `--host` and `--port` override them.
@@ -34,3 +37,6 @@ The command `bustan-sample-serve` also reads these variables. Its options
 | Login and register limit | 10 requests a minute for each client | `modules/identity/api/identity_controller.py` |
 | Page size of `GET /tasks` | default 50, maximum 100 | `modules/tasks/application/list_tasks_query.py` |
 | Cleanup of revoked tokens | `*/10 * * * *` | `modules/identity/jobs/purge_revoked_tokens_job.py` |
+| Timeout of an external call | connect 2 s, each read, write and pool wait 10 s | `platform/http/http_client_factory.py` |
+| Connections to one external API | 20, of which 10 stay open | `platform/http/http_client_factory.py` |
+| Longest wait before one job retry | 3600 s | `platform/jobs/job_queue.py` |

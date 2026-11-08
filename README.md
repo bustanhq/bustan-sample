@@ -95,6 +95,7 @@ src/bustan_sample/
     database/
     events/
     health/
+    http/
     idempotency/
     jobs/
     mail/
@@ -252,6 +253,9 @@ The recurrence of tasks is the example:
   cron expressions use UTC.
 - A failed job runs again after `JOBS_RETRY_DELAY_SECONDS`. Each next delay
   is two times longer.
+- A handler raises `PermanentJobError` when a retry cannot succeed: the job
+  fails immediately. It raises `RetryJobLater(seconds)` to set the wait, for
+  example after a `Retry-After` of an external service.
 - The name of the job class is the type of the job in the SQLite table.
   Thus each job class has a unique name.
 - With the SQLite backend, a job stays in the table until it ends. A job
@@ -271,6 +275,27 @@ The recurrence of tasks is the example:
 - `ScheduleLock` lets only one process enqueue each run of a schedule.
   `JOBS_SCHEDULER_ENABLED=false` turns the scheduler off in a process.
 
+### External APIs
+
+- Each external API is an adapter of a port, for example `ResendMailer` of
+  `Mailer`. The domain and the application never import `httpx2`.
+- The adapter gets its client from `HttpClientFactory.make(service,
+  base_url, headers=...)`. It makes the client in `on_module_init` and
+  closes it in `on_module_destroy`.
+- `HttpClient.request()` sends the correlation id of the request and writes
+  one log record for each call. A timeout or a network error raises
+  `ExternalServiceError`. `raise_for_response()` raises it for a status
+  that is not 2xx. `retryable` tells if a retry can succeed.
+- A call that changes something in the other system runs in a job. Only the
+  job queue retries: the client never retries. The job handler changes an
+  `ExternalServiceError` into `PermanentJobError` or `RetryJobLater`.
+- Give the provider the idempotency key of the work, if the provider accepts
+  one. Then a retry after a lost response does the work one time.
+- A configuration key selects the adapter, for example `MAIL_BACKEND=log|resend`. The
+  application does not start if the selected adapter has no credentials.
+- Tests give `HttpClientFactory` an `httpx2.MockTransport`. No test calls
+  the network.
+
 ### Platform
 
 A platform module is a bustan module of providers, for example services,
@@ -282,9 +307,10 @@ knows no feature module.
 | `clock` | `Clock`, and `FixedClock` for tests |
 | `database` | `Database`: the SQLite connection, if the backend is `sqlite`, and `transaction()` with `after_commit()` and `after_rollback()` |
 | `events` | `EventBus`: with SQLite, the deliveries go in the table `jobs`, in the transaction of the publisher |
+| `http` | `HttpClientFactory`, `HttpClient`, `ExternalServiceError`, `raise_for_response()` |
 | `idempotency` | `IdempotencyKeys` (port), `InMemoryIdempotencyKeys`, `SqliteIdempotencyKeys` |
 | `jobs` | `JobQueue` (port), `InMemoryJobQueue`, `SqliteJobQueue`, `JobScheduler`, `ScheduleLock` (port), `InMemoryScheduleLock`, `SqliteScheduleLock` |
-| `mail` | `Mailer` (port), `LogMailer` |
+| `mail` | `Mailer` (port), `LogMailer`, `ResendMailer`. `MAIL_BACKEND` selects one |
 | `health` | `DatabaseIndicator` and `HealthChecks`: the readiness check of SQLite |
 | `request_logging` | A global interceptor that writes one log record for each request, except the probes |
 | `throttling` | `BackendThrottlerStorage`: the rate-limit counts in memory or in SQLite |
@@ -293,7 +319,7 @@ knows no feature module.
 
 - `app_settings.py` is the one model of the configuration. Each key starts
   with the name of the module that reads it, for example `DATABASE_`,
-  `IDENTITY_` or `JOBS_`.
+  `IDENTITY_`, `JOBS_` or `MAIL_`.
 - If a value is missing or not valid, the application does not start.
 - `.env` holds the local values, and git ignores it. `.env.example` gives
   each key. A value in the environment overrides the value in `.env`.
@@ -341,8 +367,10 @@ knows no feature module.
 ## Limits
 
 - With the memory backend, a restart loses all data. Use one process only.
-- With the memory backend, events and jobs are in memory. With SQLite, an
-  event is lost if the process stops between the save and the publish.
+- With the memory backend, events and jobs are in memory, and a
+  transaction has no rollback.
+- The client sends the correlation id but no `traceparent`: bustan 2.0.3
+  has no public function that gives it.
 - Processes can share an SQLite file only on one host. For more than one
   host, a database server is necessary, behind the same ports.
 - Two applications in one process share the rate-limit storage. Run one

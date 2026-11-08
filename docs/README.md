@@ -7,6 +7,7 @@ Start the [tutorial](tutorial/README.md) to learn the design step by step.
 
 - [Run the application in a container](how-to/run-in-a-container.md)
 - [Use the SQLite backend](how-to/use-the-sqlite-backend.md)
+- [Add an adapter for an external API](how-to/add-an-external-api.md)
 - [Cut a release](how-to/cut-a-release.md)
 
 ## Reference

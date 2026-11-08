@@ -8,6 +8,7 @@
 - What changes when the backend is SQLite.
 - How a transactional outbox writes an event in the transaction of its data.
 - How idempotency keys make work happen one time.
+- How a job calls an external API, and who retries.
 
 ## Concepts
 
@@ -163,7 +164,51 @@ A failed send leaves no key, so the retry sends. If the process stops after
 the send and before the key, the retry sends a second email. That is the
 only duplicate, and it is a rare one. For external work, exactly one time
 needs the help of the other system, for example a provider that accepts an
-idempotency key of its own.
+idempotency key of its own. The next section shows one.
+
+### Call an external API
+
+With `MAIL_BACKEND=resend`, the welcome email goes through the Resend API.
+Four parts work together:
+
+1. **The port does not change its meaning.** `Mailer.send()` gets one
+   optional argument, `idempotency_key`. The job and the domain never see
+   HTTP.
+2. **The adapter owns its client.** `ResendMailer` gets a client from
+   `HttpClientFactory` in `on_module_init`, and closes it in
+   `on_module_destroy`. The factory gives each client the same timeouts
+   (connect 2 s, 10 s for each read), connection limits, `User-Agent` and
+   log record. During a request, it also sends the correlation id.
+3. **Errors say if a retry can succeed.** A timeout, a network error, 408,
+   429 and 5xx give `ExternalServiceError(retryable=True)`. A 422 or a 403
+   gives `retryable=False`: the same request gets the same answer. If the
+   server sends `Retry-After`, the error keeps it.
+4. **The job decides what the error means for the job:**
+
+   ```python
+   try:
+       await self._mailer.send(job.email, SUBJECT, BODY, idempotency_key=key)
+   except ExternalServiceError as exc:
+       if not exc.retryable:
+           raise PermanentJobError(str(exc)) from exc
+       if exc.retry_after is not None:
+           raise RetryJobLater(exc.retry_after, str(exc)) from exc
+       raise
+   ```
+
+   `PermanentJobError` fails the job at once, with no retry.
+   `RetryJobLater` sets the wait before the next attempt. Each other error
+   gets the usual delay.
+
+Only one layer retries. The client never retries, because the job queue
+already does, with a durable record and a lease. Three client retries in
+each of five job attempts would give fifteen calls for one email.
+
+The job gives its key, `identity.welcome_email:<user id>`, to Resend in the
+`Idempotency-Key` header. Resend keeps a key for 24 hours and sends no
+second email with it. That closes the duplicate case of the section above:
+if the process stops after the send and before the local key, the retry
+sends the same key, and Resend does not send again.
 
 ## Try it
 
@@ -201,7 +246,17 @@ idempotency key of its own.
    The delivery of the identity listener is not there: it ended, and the
    queue deleted it. Then undo the change.
 
-6. Remove a key. In `tasks/listeners/on_user_registered.py`, remove the two
+6. Read the calls of a fake API. Open
+   `tests/bustan_sample/platform/mail/test_resend_mailer.py`. The class
+   `_Resend` replaces the network through `httpx2.MockTransport`. Find the
+   test that gives each Resend error its retry decision, and add a case for
+   a 503. Run:
+
+   ```bash
+   uv run pytest -q tests/bustan_sample/platform/mail
+   ```
+
+7. Remove a key. In `tasks/listeners/on_user_registered.py`, remove the two
    lines of the key check, and run:
 
    ```bash
@@ -223,6 +278,12 @@ idempotency key of its own.
 - **One transaction through a context variable.** The repositories and the
   bus join the transaction of their task with no change to their ports.
   Chapter 5 gives the details.
+- **One retry layer, in the job queue.** A retry in the client is fast but
+  is lost on a restart, and it multiplies with the retries of the queue.
+  The queue retries with a record that survives a restart.
+- **httpx2, not httpx.** httpx2 is the continuation of httpx that the
+  Pydantic team maintains. httpx has had no stable release since 0.28.1, in
+  December 2024. The API is the same, with the import name `httpx2`.
 - **Keys that are explicit.** A handler names its key and decides where it
   goes: before the work in a transaction, or after an external call. A
   generic decorator would hide that choice, and the choice is the design.
@@ -238,5 +299,6 @@ idempotency key of its own.
 4. The process stops after the user commits. Why is the starter task not lost?
 5. Why does the email job add its key after the send, and the starter task
    before the work?
+6. Resend answers 503. What does the job queue do? And for a 422?
 
 Next: [8. Testing](08-testing.md).
