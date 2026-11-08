@@ -1,0 +1,18 @@
+# The image gets only pyproject.toml, uv.lock, README.md and src/. A local
+# .env with a secret must never go into a layer of the image.
+.env
+.env.*
+!.env.example
+.venv/
+.git/
+.github/
+var/
+*.db
+*.db-shm
+*.db-wal
+__pycache__/
+*.py[oc]
+.pytest_cache/
+.ruff_cache/
+tests/
+docs/
