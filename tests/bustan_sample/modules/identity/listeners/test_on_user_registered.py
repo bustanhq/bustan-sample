@@ -3,13 +3,13 @@ from uuid import uuid4
 
 from support.fakes import RecordingJobQueue
 
-from bustan_sample.modules.identity.application.on_user_registered import (
-    OnUserRegistered,
-)
-from bustan_sample.modules.identity.application.send_welcome_email_job import (
+from bustan_sample.modules.identity.domain.events import UserRegistered
+from bustan_sample.modules.identity.jobs.send_welcome_email_job import (
     SendWelcomeEmailJob,
 )
-from bustan_sample.modules.identity.domain.events import UserRegistered
+from bustan_sample.modules.identity.listeners.on_user_registered import (
+    OnUserRegistered,
+)
 from bustan_sample.platform.clock import FixedClock
 from bustan_sample.platform.events import EventBus
 

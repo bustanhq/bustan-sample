@@ -2,7 +2,7 @@ import asyncio
 
 from support.fakes import RecordingJobQueue, RecordingMailer
 
-from bustan_sample.modules.identity.application.send_welcome_email_job import (
+from bustan_sample.modules.identity.jobs.send_welcome_email_job import (
     MAX_ATTEMPTS,
     SUBJECT,
     SendWelcomeEmailHandler,

@@ -9,10 +9,10 @@ from .application.create_task_command import CreateTaskHandler
 from .application.delete_task_command import DeleteTaskHandler
 from .application.get_task_query import GetTaskHandler
 from .application.list_tasks_query import ListTasksHandler
-from .application.on_user_registered import OnUserRegistered
 from .application.update_task_command import UpdateTaskHandler
 from .domain.task_repository import TaskRepository
 from .infra.in_memory_task_repository import InMemoryTaskRepository
+from .listeners.on_user_registered import OnUserRegistered
 
 
 # The module binds the storage port of the domain to an adapter of the infra

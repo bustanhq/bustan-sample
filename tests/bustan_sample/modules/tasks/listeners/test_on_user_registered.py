@@ -5,12 +5,12 @@ from bustan_sample.modules.identity import UserRegistered
 from bustan_sample.modules.tasks.application.create_task_command import (
     CreateTaskHandler,
 )
-from bustan_sample.modules.tasks.application.on_user_registered import (
-    STARTER_TITLE,
-    OnUserRegistered,
-)
 from bustan_sample.modules.tasks.infra.in_memory_task_repository import (
     InMemoryTaskRepository,
+)
+from bustan_sample.modules.tasks.listeners.on_user_registered import (
+    STARTER_TITLE,
+    OnUserRegistered,
 )
 from bustan_sample.platform.clock import FixedClock
 from bustan_sample.platform.events import EventBus

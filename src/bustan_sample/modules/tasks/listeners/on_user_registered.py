@@ -3,7 +3,7 @@ from bustan import Injectable
 from bustan_sample.modules.identity import UserRegistered
 from bustan_sample.platform.events import EventBus
 
-from .create_task_command import CreateTaskCommand, CreateTaskHandler
+from ..application.create_task_command import CreateTaskCommand, CreateTaskHandler
 
 STARTER_TITLE = "Add your first task"
 STARTER_DESCRIPTION = (

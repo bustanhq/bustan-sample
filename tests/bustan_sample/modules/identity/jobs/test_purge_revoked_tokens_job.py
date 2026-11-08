@@ -3,12 +3,12 @@ from datetime import timedelta
 
 from support.fakes import RecordingJobQueue
 
-from bustan_sample.modules.identity.application.purge_revoked_tokens_job import (
-    PurgeRevokedTokensHandler,
-    PurgeRevokedTokensJob,
-)
 from bustan_sample.modules.identity.infra.in_memory_revoked_token_repository import (
     InMemoryRevokedTokenRepository,
+)
+from bustan_sample.modules.identity.jobs.purge_revoked_tokens_job import (
+    PurgeRevokedTokensHandler,
+    PurgeRevokedTokensJob,
 )
 from bustan_sample.platform.clock import FixedClock
 from bustan_sample.platform.jobs import JobScheduler

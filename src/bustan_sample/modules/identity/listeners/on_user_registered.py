@@ -4,7 +4,7 @@ from bustan_sample.platform.events import EventBus
 from bustan_sample.platform.jobs import JobQueue
 
 from ..domain.events import UserRegistered
-from .send_welcome_email_job import SendWelcomeEmailJob
+from ..jobs.send_welcome_email_job import SendWelcomeEmailJob
 
 
 @Injectable()

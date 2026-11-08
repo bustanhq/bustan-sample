@@ -3,7 +3,7 @@ from collections.abc import Callable
 from bustan.testing import AsgiTestClient
 from support.fakes import RecordingMailer, wait_until
 
-from bustan_sample.modules.identity.application.send_welcome_email_job import SUBJECT
+from bustan_sample.modules.identity.jobs.send_welcome_email_job import SUBJECT
 from bustan_sample.platform.clock import FixedClock
 
 SignUp = Callable[[str], dict[str, str]]

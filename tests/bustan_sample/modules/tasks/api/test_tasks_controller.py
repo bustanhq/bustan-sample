@@ -2,7 +2,7 @@ from collections.abc import Callable
 
 from bustan.testing import AsgiTestClient
 
-from bustan_sample.modules.tasks.application.on_user_registered import STARTER_TITLE
+from bustan_sample.modules.tasks.listeners.on_user_registered import STARTER_TITLE
 from bustan_sample.platform.clock import FixedClock
 
 SignUp = Callable[[str], dict[str, str]]

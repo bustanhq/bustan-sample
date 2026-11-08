@@ -11,10 +11,7 @@ from .application.authenticate_token_query import AuthenticateTokenHandler
 from .application.get_current_user_query import GetCurrentUserHandler
 from .application.log_in_command import LogInHandler
 from .application.log_out_command import LogOutHandler
-from .application.on_user_registered import OnUserRegistered
-from .application.purge_revoked_tokens_job import PurgeRevokedTokensHandler
 from .application.register_user_command import RegisterUserHandler
-from .application.send_welcome_email_job import SendWelcomeEmailHandler
 from .domain.password_hasher import PasswordHasher
 from .domain.revoked_token_repository import RevokedTokenRepository
 from .domain.token_issuer import TokenIssuer
@@ -23,6 +20,9 @@ from .infra.argon2_password_hasher import Argon2PasswordHasher
 from .infra.in_memory_revoked_token_repository import InMemoryRevokedTokenRepository
 from .infra.in_memory_user_repository import InMemoryUserRepository
 from .infra.jwt_token_issuer import JwtTokenIssuer
+from .jobs.purge_revoked_tokens_job import PurgeRevokedTokensHandler
+from .jobs.send_welcome_email_job import SendWelcomeEmailHandler
+from .listeners.on_user_registered import OnUserRegistered
 
 
 def _authenticators(bearer: BearerAuthenticator) -> dict[str, object]:
