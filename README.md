@@ -13,9 +13,11 @@ file are the rules of that layout.
 Python 3.13 or a newer version and [uv](https://docs.astral.sh/uv/) are
 necessary.
 
-1. Install the dependencies:
+1. Get the code and install the dependencies:
 
    ```bash
+   git clone https://github.com/bustanhq/bustan-sample.git
+   cd bustan-sample
    uv sync
    ```
 
@@ -33,22 +35,31 @@ necessary.
 
 4. Put the secret in `.env` as the value of `IDENTITY_JWT_SECRET`.
 
-5. Start the server:
+5. Install the git hooks:
 
    ```bash
-   uv run dev
+   lefthook install
+   ```
+
+6. Start the server, with a reload after each change in `src/`:
+
+   ```bash
+   uv run bustan-sample-serve --reload
    ```
 
 The server listens on `http://127.0.0.1:3000`. The OpenAPI document is at
-`/docs/api`, and Swagger UI is at `/docs/ui`.
+`/docs/api`, Swagger UI is at `/docs/ui`, and the probes are at
+`/health/live` and `/health/ready`. To use a different port, add
+`--port 3010`.
 
 To keep the data after a restart, set `DATABASE_BACKEND=sqlite` in `.env`.
-The database file is `var/bustan-sample.db`, and git ignores `var/`.
+The database file is `var/bustan-sample.db`, and git ignores `var/` and
+`*.db`. To run the application in a container, see
+[docs/how-to/run-in-a-container.md](docs/how-to/run-in-a-container.md).
 
 | Command | Result |
 |---|---|
-| `uv run dev` | Starts the server, and starts it again when a file in `src/` changes |
-| `uv run start` | Starts the server with no reload |
+| `uv run bustan-sample-serve` | Starts the server. `--reload` starts it again when a file in `src/` changes |
 | `uv run pytest` | Runs the tests |
 | `uv run ruff check .` | Lints the code |
 | `uv run ruff format --check .` | Examines the format of the code |
@@ -56,11 +67,15 @@ The database file is `var/bustan-sample.db`, and git ignores `var/`.
 | `uv run bustan-sample-openapi` | Writes `openapi.yaml` from the code |
 | `uv run bustan-sample-openapi --check` | Writes nothing. Exits with 1 if `openapi.yaml` does not agree with the code |
 
+The [tutorial](docs/tutorial/README.md) teaches the design from the first
+request to the trade-offs. The [docs](docs/README.md) also give the
+configuration, the tooling and the how-to guides.
+
 ## Layout
 
 ```text
 src/bustan_sample/
-  app_main.py          # entry points: create_asgi_app(), start, dev
+  app_main.py          # create_asgi_app() and the command bustan-sample-serve
   app_module.py        # the root module
   app_settings.py      # the configuration model
   app_openapi.py       # the OpenAPI settings
@@ -79,9 +94,11 @@ src/bustan_sample/
     clock/
     database/
     events/
+    health/
     jobs/
     mail/
     request_logging/
+    throttling/
 tests/
   conftest.py          # fixtures and the test configuration
   support/database.py  # the backends and open_sqlite() for the tests
@@ -186,8 +203,10 @@ The recurrence of tasks is the example:
 
 - `platform/database` has one SQLite connection for each process. It opens
   the connection in `on_module_init` and closes it in `on_module_destroy`.
-- An SQLite adapter makes its tables in its own `on_module_init`, with
-  `CREATE TABLE IF NOT EXISTS`. The adapter holds its SQL.
+- An SQLite adapter declares `MIGRATIONS` and calls
+  `Database.migrate(component, MIGRATIONS)` in its own `on_module_init`. To
+  change a table, add a migration with the next version. Never change a
+  migration that a release contains. The adapter holds its SQL.
 - Use `Database.transaction()` for statements that must all commit, or
   none.
 - Keep a time as UTC text that always has the same length (`to_text()`).
@@ -241,7 +260,9 @@ knows no feature module.
 | `events` | `EventBus` |
 | `jobs` | `JobQueue` (port), `InMemoryJobQueue`, `SqliteJobQueue`, `JobScheduler`, `ScheduleLock` (port), `InMemoryScheduleLock`, `SqliteScheduleLock` |
 | `mail` | `Mailer` (port), `LogMailer` |
-| `request_logging` | A global interceptor that writes one log record for each request |
+| `health` | `DatabaseIndicator` and `HealthChecks`: the readiness check of SQLite |
+| `request_logging` | A global interceptor that writes one log record for each request, except the probes |
+| `throttling` | `BackendThrottlerStorage`: the rate-limit counts in memory or in SQLite |
 
 ### Configuration
 
@@ -295,10 +316,10 @@ knows no feature module.
 ## Limits
 
 - With the memory backend, a restart loses all data. Use one process only.
-- The events are always in memory. A restart loses the events that are in
-  progress.
+- With the memory backend, events and jobs are in memory. With SQLite, an
+  event is lost if the process stops between the save and the publish.
 - Processes can share an SQLite file only on one host. For more than one
   host, a database server is necessary, behind the same ports.
-- The SQLite schema has no versioned migrations. For a change to a table, a
-  migration tool is necessary.
+- Two applications in one process share the rate-limit storage. Run one
+  application at a time in a process.
 - The rule-based parser knows only English repeat phrases.
