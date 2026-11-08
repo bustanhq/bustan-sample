@@ -1,5 +1,6 @@
 # Continuous integration: lock, lint, types, secrets, commit messages, the
-# OpenAPI drift, the tests on both storage backends, and the container image.
+# OpenAPI drift, the layer audit, the tests on both storage backends, and the
+# container image.
 # release.yml calls this workflow before it publishes.
 # The actions are pinned to a commit. The comment gives the release of the commit.
 
@@ -23,7 +24,7 @@ env:
 
 jobs:
   checks:
-    name: Lock, lint, types, secrets, OpenAPI and commits
+    name: Lock, lint, types, secrets, OpenAPI, layers and commits
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -43,6 +44,9 @@ jobs:
       - run: uv run --frozen ty check
       - run: uv run scripts/check_secrets.py --all
       - run: uv run --frozen bustan-sample-openapi --check
+      # The layer and module rules that bustan does not enforce: the imports
+      # between the layers, and the public names of each module.
+      - run: uv run .agents/skills/bustan-dev/scripts/audit.py .
       - if: github.event_name == 'pull_request'
         env:
           RANGE: ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}

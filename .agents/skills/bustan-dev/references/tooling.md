@@ -6,11 +6,11 @@ package and project names.
 | File | Contents |
 |---|---|
 | `pyproject.toml` (tool tables) | `[tool.ruff]`: line-length 100, target py313. `[tool.ruff.lint]`: the rule sets E, F, W, B, UP, RUF, SIM, BLE and the import sort. isort: first-party `<pkg>`, local folder `support`. `[tool.pytest]`: references/testing.md |
-| `lefthook.yml` | pre-commit: `uv lock --check` first, then in parallel ruff fix and format on staged `*.py` files, ruff format on staged `*.md` files, `ty check`, `scripts/check_secrets.py {staged_files}`, `<project>-openapi --check`. commit-msg: `scripts/check_commit.py {1}`. pre-push: `pytest -q` |
+| `lefthook.yml` | pre-commit: `uv lock --check` first, then in parallel ruff fix and format on staged `*.py` files, ruff format on staged `*.md` files, `ty check`, `scripts/check_secrets.py {staged_files}`, `<project>-openapi --check`, and the layer audit `uv run .agents/skills/bustan-dev/scripts/audit.py .` on staged `*.py` files. commit-msg: `scripts/check_commit.py {1}`. pre-push: `pytest -q` |
 | `scripts/check_commit.py`, `scripts/check_secrets.py` | From `scripts/` of the reference |
 | `LICENSE` | The Apache License 2.0: `gh api /licenses/apache-2.0 --jq .body > LICENSE`. In `pyproject.toml`: `license = "Apache-2.0"` and `license-files = ["LICENSE"]`. Keep the copyright line of the appendix as a template |
 | `.agents/skills/<name>/` | The agent skill of the project, tracked with the code. ruff and the hooks examine its scripts and the Python blocks of its pages. For Claude Code, add the untracked symlink `.claude/skills -> ../.agents/skills` and list it in `.git/info/exclude` |
-| `.github/workflows/ci.yml` | `on: push (main), pull_request, workflow_call`. Three jobs. checks: lock, ruff, ty, secrets `--all`, OpenAPI, commit range of a pull request. tests: a matrix of the Python versions. image: build, start on SQLite, read `/health/ready` |
+| `.github/workflows/ci.yml` | `on: push (main), pull_request, workflow_call`. Three jobs. checks: lock, ruff, ty, secrets `--all`, OpenAPI, the layer audit (`audit.py .`), commit range of a pull request. tests: a matrix of the Python versions. image: build, start on SQLite, read `/health/ready` |
 | `.github/workflows/release.yml` | On a tag `vX.Y.Z`: CI, a tag that is `uv version --short`, the notes from CHANGELOG.md, `uv build`, the image in `ghcr.io/<owner>/<repo>`, and `gh release create` |
 | `.github/dependabot.yml` | Weekly: github-actions, uv, docker |
 | `CHANGELOG.md` | Keep a Changelog 1.1.0. One line in `[Unreleased]` for each change that a user sees |

@@ -31,6 +31,10 @@ pre-commit:
             run: uv run scripts/check_secrets.py {staged_files}
           - name: openapi
             run: uv run --frozen bustan-sample-openapi --check
+          # The imports between the layers and the public names of each module.
+          - name: layers
+            glob: "*.py"
+            run: uv run .agents/skills/bustan-dev/scripts/audit.py .
 
 commit-msg:
   jobs:
