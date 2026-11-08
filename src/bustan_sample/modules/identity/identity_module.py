@@ -3,6 +3,7 @@ from bustan import AUTHENTICATOR_REGISTRY, ClassProvider, FactoryProvider, Modul
 from bustan_sample.platform.clock import ClockModule
 from bustan_sample.platform.database import Database, DatabaseModule
 from bustan_sample.platform.events import EventsModule
+from bustan_sample.platform.idempotency import IdempotencyModule
 from bustan_sample.platform.jobs import JobsModule
 from bustan_sample.platform.mail import MailModule
 
@@ -53,7 +54,14 @@ def _revoked_token_repository(database: Database) -> RevokedTokenRepository:
 # The event handlers and the job handlers subscribe, register and schedule in
 # their on_module_init hooks. Thus each one is only a line in providers.
 @Module(
-    imports=[ClockModule, DatabaseModule, EventsModule, JobsModule, MailModule],
+    imports=[
+        ClockModule,
+        DatabaseModule,
+        EventsModule,
+        IdempotencyModule,
+        JobsModule,
+        MailModule,
+    ],
     controllers=[IdentityController],
     providers=[
         FactoryProvider(provide=UserRepository, use_factory=_user_repository, inject=(Database,)),

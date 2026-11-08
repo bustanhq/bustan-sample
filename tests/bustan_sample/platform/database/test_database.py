@@ -1,5 +1,7 @@
 import asyncio
 import sqlite3
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 import pytest
@@ -7,7 +9,7 @@ from bustan import ConfigService
 
 from bustan_sample.platform.database import Database, DatabaseBackend, Migration
 
-from support.database import open_sqlite
+from support.database import BACKENDS, memory_database, open_sqlite
 
 
 def test_the_memory_backend_opens_no_file(tmp_path: Path) -> None:
@@ -38,13 +40,111 @@ def test_a_transaction_rolls_back_on_an_error(tmp_path: Path) -> None:
         async with open_sqlite(tmp_path / "app.db") as database:
             await database.execute_script("CREATE TABLE notes (text TEXT)")
             with pytest.raises(ValueError):
-                async with database.transaction() as connection:
-                    await connection.execute("INSERT INTO notes VALUES ('lost')")
+                async with database.transaction():
+                    await database.execute("INSERT INTO notes VALUES ('lost')")
                     raise ValueError("stop")
-            async with database.transaction() as connection:
-                await connection.execute("INSERT INTO notes VALUES ('kept')")
+            async with database.transaction():
+                await database.execute("INSERT INTO notes VALUES ('kept')")
             rows = await database.fetch_all("SELECT text FROM notes")
             assert [row["text"] for row in rows] == ["kept"]
+
+    asyncio.run(scenario())
+
+
+def test_a_nested_transaction_joins_the_outer_one(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        async with open_sqlite(tmp_path / "app.db") as database:
+            await database.execute_script("CREATE TABLE notes (text TEXT)")
+            with pytest.raises(ValueError):
+                async with database.transaction():
+                    await database.execute("INSERT INTO notes VALUES ('outer')")
+                    async with database.transaction():
+                        await database.execute("INSERT INTO notes VALUES ('inner')")
+                    assert database.in_transaction
+                    raise ValueError("stop")
+            assert not database.in_transaction
+            assert await database.fetch_all("SELECT text FROM notes") == []
+
+    asyncio.run(scenario())
+
+
+@asynccontextmanager
+async def _database(backend: str, path: Path) -> AsyncGenerator[Database]:
+    if backend == "memory":
+        yield memory_database()
+        return
+    async with open_sqlite(path) as database:
+        yield database
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_callbacks_run_after_the_commit_or_after_the_rollback(backend: str, tmp_path: Path) -> None:
+    async def scenario() -> None:
+        async with _database(backend, tmp_path / "app.db") as database:
+            calls: list[str] = []
+            async with database.transaction():
+                database.after_commit(lambda: calls.append("commit"))
+                database.after_rollback(lambda: calls.append("rollback"))
+                assert calls == []
+            assert calls == ["commit"]
+            calls.clear()
+            with pytest.raises(ValueError):
+                async with database.transaction():
+                    database.after_commit(lambda: calls.append("commit"))
+                    database.after_rollback(lambda: calls.append("rollback"))
+                    raise ValueError("stop")
+            assert calls == ["rollback"]
+            calls.clear()
+            database.after_commit(lambda: calls.append("no transaction"))
+            database.after_rollback(lambda: calls.append("never"))
+            assert calls == ["no transaction"]
+
+    asyncio.run(scenario())
+
+
+def test_a_failed_callback_does_not_stop_the_other_callbacks() -> None:
+    async def scenario() -> None:
+        database, calls = memory_database(), []
+
+        def fail() -> None:
+            raise RuntimeError("broken callback")
+
+        async with database.transaction():
+            database.after_commit(fail)
+            database.after_commit(lambda: calls.append("second"))
+        assert calls == ["second"]
+
+    asyncio.run(scenario())
+
+
+def test_a_task_that_a_transaction_starts_does_not_join_it(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        async with open_sqlite(tmp_path / "app.db") as database:
+            await database.execute_script("CREATE TABLE notes (text TEXT)")
+
+            async def count() -> int:
+                row = await database.fetch_one("SELECT COUNT(*) FROM notes")
+                assert row is not None
+                return row[0]
+
+            async with database.transaction():
+                await database.execute("INSERT INTO notes VALUES ('a')")
+                reader = asyncio.create_task(count())
+                await asyncio.sleep(0.05)
+                # The reader waits for the lock, thus it cannot see the open transaction.
+                assert not reader.done()
+            assert await reader == 1
+
+    asyncio.run(scenario())
+
+
+def test_a_schema_change_in_a_transaction_is_refused(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        async with open_sqlite(tmp_path / "app.db") as database, database.transaction():
+            with pytest.raises(RuntimeError, match="transaction"):
+                await database.execute_script("CREATE TABLE notes (text TEXT)")
+            with pytest.raises(RuntimeError, match="transaction"):
+                await database.migrate("notes", MIGRATIONS)
 
     asyncio.run(scenario())
 

@@ -38,13 +38,13 @@ class SqliteScheduleLock(ScheduleLock):
         await self._database.migrate("jobs.schedule_runs", MIGRATIONS)
 
     async def claim(self, name: str, run_at: datetime) -> bool:
-        async with self._database.transaction() as connection:
-            await connection.execute(
+        async with self._database.transaction():
+            await self._database.execute(
                 "DELETE FROM schedule_runs WHERE run_at < ?",
                 (to_text(run_at - KEEP_RUNS_FOR),),
             )
-            cursor = await connection.execute(
+            inserted = await self._database.execute(
                 "INSERT OR IGNORE INTO schedule_runs (name, run_at, claimed_at) VALUES (?, ?, ?)",
                 (name, to_text(run_at), to_text(self._clock.now())),
             )
-            return cursor.rowcount == 1
+            return inserted == 1

@@ -15,7 +15,7 @@ from .sqlite_schedule_lock import SqliteScheduleLock
 def _job_queue(database: Database, config: ConfigService, clock: Clock) -> JobQueue:
     if database.is_sqlite:
         return SqliteJobQueue(database, config, clock)
-    return InMemoryJobQueue(config)
+    return InMemoryJobQueue(config, database)
 
 
 def _schedule_lock(database: Database, clock: Clock) -> ScheduleLock:

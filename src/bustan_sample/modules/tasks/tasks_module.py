@@ -4,6 +4,7 @@ from bustan_sample.modules.identity import IdentityModule
 from bustan_sample.platform.clock import ClockModule
 from bustan_sample.platform.database import Database, DatabaseModule
 from bustan_sample.platform.events import EventsModule
+from bustan_sample.platform.idempotency import IdempotencyModule
 
 from .api.tasks_controller import TasksController
 from .application.create_task_command import CreateTaskHandler
@@ -32,7 +33,7 @@ def _task_repository(database: Database) -> TaskRepository:
 # IdentityModule gives the authenticator for @Auth("bearer") on the controller.
 # OnUserRegistered subscribes to the event of identity in its on_module_init.
 @Module(
-    imports=[ClockModule, DatabaseModule, EventsModule, IdentityModule],
+    imports=[ClockModule, DatabaseModule, EventsModule, IdempotencyModule, IdentityModule],
     controllers=[TasksController],
     providers=[
         FactoryProvider(provide=TaskRepository, use_factory=_task_repository, inject=(Database,)),

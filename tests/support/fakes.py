@@ -47,6 +47,10 @@ def wait_until(condition: Callable[[], bool], timeout: float = 2.0) -> None:
         time.sleep(0.01)
 
 
-def memory_event_bus() -> EventBus:
-    """Return an event bus for the memory backend, with no job queue."""
-    return EventBus(RecordingJobQueue(), Database(ConfigService({})))
+def memory_event_bus(database: Database | None = None) -> EventBus:
+    """Return an event bus for the memory backend, with no job queue.
+
+    Give the Database of the code under test, thus the bus delivers after the
+    commit of its transactions.
+    """
+    return EventBus(RecordingJobQueue(), database or Database(ConfigService({})))

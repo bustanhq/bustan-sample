@@ -22,6 +22,8 @@ from bustan_sample.modules.tasks.infra.rule_based_recurrence_parser import (
 )
 from bustan_sample.platform.clock import FixedClock
 
+from support.database import memory_database
+
 ADA, BOB = uuid4(), uuid4()
 WEEKLY = RecurrenceRule(Frequency.WEEKLY)
 
@@ -30,7 +32,9 @@ class _Setup:
     def __init__(self) -> None:
         self.repository = InMemoryTaskRepository()
         self.clock = FixedClock()
-        self.handler = UpdateTaskHandler(self.repository, self.clock, RuleBasedRecurrenceParser())
+        self.handler = UpdateTaskHandler(
+            self.repository, self.clock, RuleBasedRecurrenceParser(), memory_database()
+        )
 
     async def add(self, task: Task) -> Task:
         await self.repository.save(task)

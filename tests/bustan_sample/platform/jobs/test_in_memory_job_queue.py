@@ -4,6 +4,7 @@ from dataclasses import dataclass
 import pytest
 from bustan import ConfigService
 
+from bustan_sample.platform.database import Database
 from bustan_sample.platform.jobs import InMemoryJobQueue
 
 
@@ -13,7 +14,8 @@ class Work:
 
 
 def _queue() -> InMemoryJobQueue:
-    return InMemoryJobQueue(ConfigService({"JOBS_WORKERS": 2, "JOBS_RETRY_DELAY_SECONDS": 0}))
+    config = ConfigService({"JOBS_WORKERS": 2, "JOBS_RETRY_DELAY_SECONDS": 0})
+    return InMemoryJobQueue(config, Database(ConfigService({})))
 
 
 def test_an_enqueued_job_runs_on_a_worker() -> None:
@@ -106,6 +108,32 @@ def test_registration_errors_are_refused() -> None:
         await queue.on_application_bootstrap()
         with pytest.raises(LookupError):
             await queue.enqueue("a job type with no handler")
+        await queue.on_application_shutdown(None)
+
+    asyncio.run(scenario())
+
+
+def test_a_job_runs_only_after_its_transaction_commits() -> None:
+    async def scenario() -> None:
+        database = Database(ConfigService({}))
+        queue = InMemoryJobQueue(ConfigService({"JOBS_RETRY_DELAY_SECONDS": 0}), database)
+        done: list[int] = []
+
+        async def handle(job: Work) -> None:
+            done.append(job.value)
+
+        queue.register(Work, handle)
+        await queue.on_application_bootstrap()
+        with pytest.raises(ValueError):
+            async with database.transaction():
+                await queue.enqueue(Work(1))
+                raise ValueError("stop")
+        async with database.transaction():
+            await queue.enqueue(Work(2))
+            await asyncio.sleep(0.01)
+            assert done == []
+        assert await queue.drain(1)
+        assert done == [2]
         await queue.on_application_shutdown(None)
 
     asyncio.run(scenario())

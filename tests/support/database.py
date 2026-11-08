@@ -11,6 +11,11 @@ from bustan_sample.platform.database import Database
 BACKENDS = ["memory", "sqlite"]
 
 
+def memory_database() -> Database:
+    """Return a Database for the memory backend. Its transactions have no rollback."""
+    return Database(ConfigService({}))
+
+
 def sqlite_config(path: Path, **values: object) -> ConfigService:
     """Return a configuration for the SQLite backend on the file, with the given values."""
     return ConfigService(

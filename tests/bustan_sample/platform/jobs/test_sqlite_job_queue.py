@@ -155,3 +155,28 @@ def test_a_job_of_a_stopped_process_runs_again_after_its_lease(tmp_path: Path) -
         assert done == [9]
 
     asyncio.run(scenario())
+
+
+def test_a_job_in_a_rolled_back_transaction_leaves_no_row(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        path = tmp_path / "test.db"
+        async with open_sqlite(path) as database:
+            queue = _queue(database, path, FixedClock())
+            await queue.on_module_init()
+
+            async def handle(job: Work) -> None:
+                return None
+
+            queue.register(Work, handle)
+            try:
+                async with database.transaction():
+                    await queue.enqueue(Work(1))
+                    raise ValueError("stop")
+            except ValueError:
+                pass
+            assert await database.fetch_all("SELECT id FROM jobs") == []
+            async with database.transaction():
+                await queue.enqueue(Work(2))
+            assert len(await database.fetch_all("SELECT id FROM jobs")) == 1
+
+    asyncio.run(scenario())

@@ -4,6 +4,8 @@ from typing import cast
 
 from bustan import ConfigService, Injectable, Logger, LogLevel
 
+from bustan_sample.platform.database import Database
+
 from .job_queue import FailedJob, JobHandler, JobQueue
 
 SHUTDOWN_TIMEOUT_SECONDS = 10.0
@@ -30,12 +32,17 @@ class InMemoryJobQueue(JobQueue):
     before each next attempt. The shutdown hook waits for the queued jobs for
     SHUTDOWN_TIMEOUT_SECONDS, then cancels the remaining work.
 
+    An enqueue in a transaction (Database.transaction()) puts the job in the
+    queue after the commit. If the transaction rolls back, the job does not
+    run.
+
     The queue keeps the jobs in memory. Thus the jobs in the queue are lost if
     the process stops. For durable jobs, bind JobQueue to an adapter for a
     durable store.
     """
 
-    def __init__(self, config: ConfigService) -> None:
+    def __init__(self, config: ConfigService, database: Database) -> None:
+        self._database = database
         self._worker_count = int(config.get("JOBS_WORKERS", 2))
         self._retry_delay = float(config.get("JOBS_RETRY_DELAY_SECONDS", 1.0))
         self._registrations: dict[type, _Registration] = {}
@@ -63,7 +70,8 @@ class InMemoryJobQueue(JobQueue):
     async def enqueue(self, job: object) -> None:
         if type(job) not in self._registrations:
             raise LookupError(f"no handler is registered for {type(job).__name__}")
-        self._started_queue().put_nowait(_Envelope(job))
+        queue = self._started_queue()
+        self._database.after_commit(lambda: queue.put_nowait(_Envelope(job)))
 
     async def on_application_bootstrap(self) -> None:
         # The queue is made here, thus it belongs to the event loop that serves

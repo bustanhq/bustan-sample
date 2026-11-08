@@ -13,7 +13,7 @@ from bustan_sample.platform.database import Database
 from bustan_sample.platform.events import EventBus
 from bustan_sample.platform.jobs import SqliteJobQueue
 
-from support.database import open_sqlite, sqlite_config
+from support.database import memory_database, open_sqlite, sqlite_config
 from support.fakes import memory_event_bus
 
 
@@ -166,6 +166,78 @@ def test_a_durable_delivery_survives_a_restart_and_retries(tmp_path: Path) -> No
             assert await queue.drain(2)
             await queue.on_application_shutdown(None)
         assert attempts == [event.user_id, event.user_id]
+
+    asyncio.run(scenario())
+
+
+def test_a_publish_in_a_transaction_delivers_after_the_commit() -> None:
+    async def scenario() -> None:
+        database, seen = memory_database(), []
+        bus = memory_event_bus(database)
+
+        async def handle(event: Happened) -> None:
+            seen.append(event.value)
+
+        bus.subscribe(Happened, handle)
+        async with database.transaction():
+            await bus.publish(Happened(1))
+            await asyncio.sleep(0.01)
+            assert seen == []
+        assert await bus.drain(1)
+        assert seen == [1]
+
+    asyncio.run(scenario())
+
+
+def test_a_rollback_drops_the_events_of_the_transaction() -> None:
+    async def scenario() -> None:
+        database, seen = memory_database(), []
+        bus = memory_event_bus(database)
+
+        async def handle(event: Happened) -> None:
+            seen.append(event.value)
+
+        bus.subscribe(Happened, handle)
+        with pytest.raises(ValueError):
+            async with database.transaction():
+                await bus.publish(Happened(1))
+                raise ValueError("the save failed")
+        assert await bus.drain(1)
+        assert seen == []
+
+    asyncio.run(scenario())
+
+
+def test_the_outbox_rows_commit_or_roll_back_with_the_data(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        path, seen = tmp_path / "test.db", []
+
+        async def handle(event: Registered) -> None:
+            seen.append(event)
+
+        async with open_sqlite(path) as database:
+            bus, queue = _durable(database, path)
+            await queue.on_module_init()
+            bus.on_module_init()
+            bus.subscribe(Registered, handle)
+            await database.execute_script("CREATE TABLE users (id TEXT)")
+            lost = Registered(uuid4(), datetime(2026, 1, 1, tzinfo=UTC))
+            with pytest.raises(ValueError):
+                async with database.transaction():
+                    await database.execute("INSERT INTO users VALUES (?)", (str(lost.user_id),))
+                    await bus.publish(lost)
+                    raise ValueError("stop after the publish")
+            assert await database.fetch_all("SELECT id FROM users") == []
+            assert await database.fetch_all("SELECT id FROM jobs") == []
+            kept = Registered(uuid4(), datetime(2026, 1, 1, tzinfo=UTC))
+            async with database.transaction():
+                await database.execute("INSERT INTO users VALUES (?)", (str(kept.user_id),))
+                await bus.publish(kept)
+            assert len(await database.fetch_all("SELECT id FROM jobs")) == 1
+            await queue.on_application_bootstrap()
+            assert await queue.drain(2)
+            await queue.on_application_shutdown(None)
+        assert seen == [kept]
 
     asyncio.run(scenario())
 

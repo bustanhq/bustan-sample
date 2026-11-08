@@ -76,23 +76,20 @@ class BackendThrottlerStorage:
     async def _count_in_sqlite(
         self, database: Database, key: str, ttl: int, limit: int, now: float
     ) -> ThrottleState:
-        async with database.transaction() as connection:
-            await connection.execute(
+        async with database.transaction():
+            await database.execute(
                 "DELETE FROM throttle_hits WHERE at <= ?", (now - self._max_ttl,)
             )
-            await connection.execute(
+            await database.execute(
                 "DELETE FROM throttle_hits WHERE key = ? AND at <= ?", (key, now - ttl)
             )
-            async with connection.execute(
+            row = await database.fetch_one(
                 "SELECT COUNT(*), MIN(at) FROM throttle_hits WHERE key = ?", (key,)
-            ) as cursor:
-                row = await cursor.fetchone()
+            )
             count, oldest = (0, None) if row is None else (row[0], row[1])
             if count >= limit:
                 return ThrottleState(count + 1, _reset_after(oldest or now, ttl, now))
-            await connection.execute(
-                "INSERT INTO throttle_hits (key, at) VALUES (?, ?)", (key, now)
-            )
+            await database.execute("INSERT INTO throttle_hits (key, at) VALUES (?, ?)", (key, now))
             return ThrottleState(count + 1, _reset_after(oldest or now, ttl, now))
 
 

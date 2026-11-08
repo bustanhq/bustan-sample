@@ -29,17 +29,27 @@ class DeliverEvent:
 class EventBus:
     """Delivers each event to the handlers of its type.
 
-    With the memory backend, publish() starts one asyncio task for each
-    handler and returns immediately. A handler error goes to the log. The bus
-    keeps no events. At shutdown it waits for the running handlers for
-    SHUTDOWN_TIMEOUT_SECONDS, then it cancels the remaining handlers.
+    Publish an event in the transaction that saves its data, in
+    Database.transaction(). Then the event goes out only if the data commits,
+    and the data never commits without the event.
 
     With the SQLite backend, publish() enqueues one DeliverEvent job for each
-    handler in the durable job queue. Thus a delivery survives a restart, and
-    a handler that fails runs again, until DELIVERY_ATTEMPTS attempts. A
-    handler can run more than one time for one event, thus it must give the
-    same result each time. The publisher saves its data first and publishes
-    after: if the process stops between the two, the event is lost.
+    handler. The INSERT joins the transaction of the publisher. Thus the table
+    jobs is the transactional outbox, and the job workers are the relay that
+    delivers from it. A delivery survives a restart, and a handler that fails
+    runs again, until DELIVERY_ATTEMPTS attempts. A handler can run more than
+    one time for one event. Thus it must give the same result each time, or
+    keep an idempotency key (bustan_sample.platform.idempotency).
+
+    With the memory backend, publish() starts one asyncio task for each
+    handler after the commit. A rollback drops the event. A handler error goes
+    to the log. The bus keeps no events. At shutdown it waits for the running
+    handlers for SHUTDOWN_TIMEOUT_SECONDS, then it cancels the remaining
+    handlers.
+
+    Outside a transaction, publish() enqueues or starts the deliveries
+    immediately. Then, if the process stops between the save and the publish,
+    the event is lost.
 
     An event is a dataclass that pydantic can write as JSON. The job keeps the
     class name of the event and the module and the name of the handler. Thus
@@ -48,6 +58,7 @@ class EventBus:
 
     def __init__(self, jobs: JobQueue, database: Database) -> None:
         self._jobs = jobs
+        self._database = database
         self.durable = database.is_sqlite
         self._handlers: defaultdict[type, list[tuple[str, EventHandler[object]]]] = defaultdict(
             list
@@ -73,7 +84,7 @@ class EventBus:
         self._by_name[key] = (event_type, entry)
 
     async def publish(self, event: object) -> None:
-        handlers = self._handlers.get(type(event), [])
+        handlers = list(self._handlers.get(type(event), []))
         if not handlers:
             return
         if self.durable:
@@ -82,6 +93,9 @@ class EventBus:
             for name, _ in handlers:
                 await self._jobs.enqueue(DeliverEvent(event_type.__name__, name, payload))
             return
+        self._database.after_commit(lambda: self._start(event, handlers))
+
+    def _start(self, event: object, handlers: list[tuple[str, EventHandler[object]]]) -> None:
         for name, handler in handlers:
             task = asyncio.create_task(self._deliver(name, handler, event))
             self._running.add(task)

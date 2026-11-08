@@ -5,8 +5,10 @@ from uuid import UUID
 from bustan import Injectable
 
 from bustan_sample.platform.clock import Clock
+from bustan_sample.platform.database import Database
 
 from ..domain.errors import TaskNotFoundError
+from ..domain.recurrence import RecurrenceRule
 from ..domain.recurrence_parser import RecurrenceParser
 from ..domain.task import Task, TaskStatus
 from ..domain.task_repository import TaskRepository
@@ -33,18 +35,35 @@ class UpdateTaskCommand:
 
 @Injectable()
 class UpdateTaskHandler:
-    """Changes a task. When a recurring task becomes done, adds the next task."""
+    """Changes a task. When a recurring task becomes done, adds the next task.
 
-    def __init__(self, repository: TaskRepository, clock: Clock, parser: RecurrenceParser) -> None:
+    The read, the change and the two saves are one transaction. Thus two
+    requests cannot both see the task as open and both add the next task, and
+    a done task never commits without its next task.
+    """
+
+    def __init__(
+        self,
+        repository: TaskRepository,
+        clock: Clock,
+        parser: RecurrenceParser,
+        database: Database,
+    ) -> None:
         self._repository = repository
         self._clock = clock
         self._parser = parser
+        self._database = database
 
     async def execute(self, command: UpdateTaskCommand) -> Task:
+        # A parser can be slow (a model adapter), thus it runs before the transaction.
+        recurrence = None if command.repeat is None else await self._parser.parse(command.repeat)
+        async with self._database.transaction():
+            return await self._apply(command, recurrence)
+
+    async def _apply(self, command: UpdateTaskCommand, recurrence: RecurrenceRule | None) -> Task:
         task = await self._repository.get(command.owner_id, command.task_id)
         if task is None:
             raise TaskNotFoundError(command.task_id)
-        recurrence = None if command.repeat is None else await self._parser.parse(command.repeat)
         was_done = task.status is TaskStatus.DONE
         now = self._clock.now()
         if command.title is not None:

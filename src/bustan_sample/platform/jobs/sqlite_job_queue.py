@@ -54,9 +54,12 @@ class SqliteJobQueue(JobQueue):
     time. A done job is deleted. A job that fails on each attempt stays in the
     table with the status failed.
 
-    An enqueue in this process starts a worker immediately. A worker looks for
-    the jobs of other processes each JOBS_POLL_SECONDS. A process claims only
-    the job types that it registered.
+    An enqueue in a transaction (Database.transaction()) joins it: the job
+    commits with the data of the transaction, or not at all. Thus a job is
+    never lost between a save and an enqueue. After the commit, or immediately
+    outside a transaction, the enqueue starts a worker of this process. A
+    worker looks for the jobs of other processes each JOBS_POLL_SECONDS. A
+    process claims only the job types that it registered.
     """
 
     def __init__(self, database: Database, config: ConfigService, clock: Clock) -> None:
@@ -100,6 +103,10 @@ class SqliteJobQueue(JobQueue):
             "VALUES (?, ?, 1, 'queued', ?, ?)",
             (name, payload, now, now),
         )
+        # A worker that started before the commit cannot see the row.
+        self._database.after_commit(self._wake_workers)
+
+    def _wake_workers(self) -> None:
         if self._wake is not None:
             self._wake.set()
 
