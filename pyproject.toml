@@ -1,0 +1,27 @@
+[project]
+name = "bustan-sample"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "mosesgameli", email = "mosesgameli20@gmail.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "uvicorn[standard]",
+    "bustan[starlette]>=2.0.3",
+    "pyjwt>=2.15.1",
+    "argon2-cffi>=25.1.0",
+]
+
+[project.scripts]
+start = "bustan_sample.app_main:main"
+dev = "bustan_sample.app_main:dev"
+bustan-sample = "bustan_sample:main"
+
+[build-system]
+requires = ["uv_build>=0.13.6,<0.14.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = ["pytest", "ruff", "ty"]
