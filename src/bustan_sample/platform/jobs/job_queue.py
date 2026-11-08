@@ -1,16 +1,28 @@
 from abc import ABC, abstractmethod
 from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
 
 type JobHandler[J] = Callable[[J], Awaitable[None]]
+
+
+@dataclass(frozen=True, slots=True)
+class FailedJob:
+    """A job that failed on each attempt. The queue keeps it for examination."""
+
+    job: object
+    attempts: int
+    error: str
 
 
 class JobQueue(ABC):
     """The port for background jobs.
 
     A job is a frozen dataclass with JSON-compatible fields (str, int, float,
-    bool). Thus an adapter for a durable store, for example Redis, can
-    serialize it with no change to the modules. Register the handler of a job
-    type before the first enqueue of that type.
+    bool). Thus an adapter for a durable store, for example SQLite, can
+    serialize it with no change to the modules. The name of the job class is
+    the type of the job in a durable store, thus each job class has a unique
+    name. Register the handler of a job type before the first enqueue of that
+    type.
     """
 
     @abstractmethod

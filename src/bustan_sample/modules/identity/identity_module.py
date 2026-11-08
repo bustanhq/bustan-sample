@@ -1,6 +1,7 @@
 from bustan import AUTHENTICATOR_REGISTRY, ClassProvider, FactoryProvider, Module
 
 from bustan_sample.platform.clock import ClockModule
+from bustan_sample.platform.database import Database, DatabaseModule
 from bustan_sample.platform.events import EventsModule
 from bustan_sample.platform.jobs import JobsModule
 from bustan_sample.platform.mail import MailModule
@@ -20,6 +21,8 @@ from .infra.argon2_password_hasher import Argon2PasswordHasher
 from .infra.in_memory_revoked_token_repository import InMemoryRevokedTokenRepository
 from .infra.in_memory_user_repository import InMemoryUserRepository
 from .infra.jwt_token_issuer import JwtTokenIssuer
+from .infra.sqlite_revoked_token_repository import SqliteRevokedTokenRepository
+from .infra.sqlite_user_repository import SqliteUserRepository
 from .jobs.purge_revoked_tokens_job import PurgeRevokedTokensHandler
 from .jobs.send_welcome_email_job import SendWelcomeEmailHandler
 from .listeners.on_user_registered import OnUserRegistered
@@ -29,20 +32,37 @@ def _authenticators(bearer: BearerAuthenticator) -> dict[str, object]:
     return {STRATEGY: bearer}
 
 
-# The module binds each domain port to an infra adapter. It exports the
-# authenticator registry: a module that imports IdentityModule can put
-# @Auth("bearer") on its routes. JwtTokenIssuer and the job queue read
-# ConfigService, which the global ConfigModule of the root module gives.
+def _user_repository(database: Database) -> UserRepository:
+    if database.is_sqlite:
+        return SqliteUserRepository(database)
+    return InMemoryUserRepository()
+
+
+def _revoked_token_repository(database: Database) -> RevokedTokenRepository:
+    if database.is_sqlite:
+        return SqliteRevokedTokenRepository(database)
+    return InMemoryRevokedTokenRepository()
+
+
+# The module binds each domain port to an infra adapter. DATABASE_BACKEND
+# selects the adapters of the two repositories. It exports the authenticator
+# registry: a module that imports IdentityModule can put @Auth("bearer") on
+# its routes. JwtTokenIssuer, Database and the job queue read ConfigService,
+# which the global ConfigModule of the root module gives.
 #
 # The event handlers and the job handlers subscribe, register and schedule in
 # their on_module_init hooks. Thus each one is only a line in providers.
 @Module(
-    imports=[ClockModule, EventsModule, JobsModule, MailModule],
+    imports=[ClockModule, DatabaseModule, EventsModule, JobsModule, MailModule],
     controllers=[IdentityController],
     providers=[
-        ClassProvider(provide=UserRepository, use_class=InMemoryUserRepository),
-        ClassProvider(
-            provide=RevokedTokenRepository, use_class=InMemoryRevokedTokenRepository
+        FactoryProvider(
+            provide=UserRepository, use_factory=_user_repository, inject=(Database,)
+        ),
+        FactoryProvider(
+            provide=RevokedTokenRepository,
+            use_factory=_revoked_token_repository,
+            inject=(Database,),
         ),
         ClassProvider(provide=PasswordHasher, use_class=Argon2PasswordHasher),
         ClassProvider(provide=TokenIssuer, use_class=JwtTokenIssuer),

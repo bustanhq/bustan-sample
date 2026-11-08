@@ -4,18 +4,9 @@ from typing import cast
 
 from bustan import ConfigService, Injectable, Logger, LogLevel
 
-from .job_queue import JobHandler, JobQueue
+from .job_queue import FailedJob, JobHandler, JobQueue
 
 SHUTDOWN_TIMEOUT_SECONDS = 10.0
-
-
-@dataclass(frozen=True, slots=True)
-class FailedJob:
-    """A job that failed on each attempt. The queue keeps it for examination."""
-
-    job: object
-    attempts: int
-    error: str
 
 
 @dataclass(frozen=True, slots=True)

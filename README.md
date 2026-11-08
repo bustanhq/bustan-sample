@@ -3,7 +3,7 @@
 A sample API made with [bustan](https://bustan.dev) 2.0.3. Each user has
 tasks, and a task can recur. The identity module gives and revokes JWT
 bearer tokens. Events, background jobs and cron schedules connect the
-modules.
+modules. The data is in memory or in SQLite, as `DATABASE_BACKEND` selects.
 
 The sample is the reference layout for bustan projects. The rules in this
 file are the rules of that layout.
@@ -42,6 +42,9 @@ necessary.
 The server listens on `http://127.0.0.1:3000`. The OpenAPI document is at
 `/docs/api`, and Swagger UI is at `/docs/ui`.
 
+To keep the data after a restart, set `DATABASE_BACKEND=sqlite` in `.env`.
+The database file is `var/bustan-sample.db`, and git ignores `var/`.
+
 | Command | Result |
 |---|---|
 | `uv run dev` | Starts the server, and starts it again when a file in `src/` changes |
@@ -74,12 +77,14 @@ src/bustan_sample/
       __init__.py      # the public names of the module
   platform/            # shared modules of providers
     clock/
+    database/
     events/
     jobs/
     mail/
     request_logging/
 tests/
   conftest.py          # fixtures and the test configuration
+  support/database.py  # the backends and open_sqlite() for the tests
   support/fakes.py     # test doubles and wait_until()
   bustan_sample/       # the same tree as src/bustan_sample/
 ```
@@ -93,8 +98,9 @@ tests/
    modules import only these names.
 3. Import each module that a module uses in its `@Module(imports=...)`.
    This includes the platform modules. Only `ConfigModule` is global.
-4. Bind each port to an adapter in `<module>_module.py`, with
-   `ClassProvider`. To change an adapter, change only that line.
+4. Bind each port to an adapter in `<module>_module.py`. Use
+   `ClassProvider` for one adapter, and a `FactoryProvider` if the
+   configuration selects the adapter.
 
 Example: the tasks module imports `IdentityModule`, `CurrentUser`,
 `AuthenticatedUser`, `STRATEGY` and `UserRegistered` from
@@ -162,6 +168,33 @@ The recurrence of tasks is the example:
   with no change to the domain or the application.
 - `UpdateTaskHandler` adds the next task when a recurring task becomes done.
 
+### Storage
+
+- `DATABASE_BACKEND` selects the adapter of each storage port: `memory`
+  (the default) or `sqlite`.
+- Each port with storage has two adapters in `infra/`, for example
+  `InMemoryTaskRepository` and `SqliteTaskRepository`.
+- In `<module>_module.py`, a factory function makes only the selected
+  adapter. bustan calls the hooks of the instance that the factory makes:
+
+  ```python
+  def _task_repository(database: Database) -> TaskRepository:
+      if database.is_sqlite:
+          return SqliteTaskRepository(database)
+      return InMemoryTaskRepository()
+  ```
+
+- `platform/database` has one SQLite connection for each process. It opens
+  the connection in `on_module_init` and closes it in `on_module_destroy`.
+- An SQLite adapter makes its tables in its own `on_module_init`, with
+  `CREATE TABLE IF NOT EXISTS`. The adapter holds its SQL.
+- Use `Database.transaction()` for statements that must all commit, or
+  none.
+- Keep a time as UTC text that always has the same length (`to_text()`).
+  Thus the text order is the time order.
+- The two adapters of a port must give the same results. A contract test
+  in `tests/.../domain/test_<port>.py` runs each test on each adapter.
+
 ### Events
 
 - An event is a frozen dataclass in `domain/events.py`.
@@ -185,6 +218,15 @@ The recurrence of tasks is the example:
   cron expressions use UTC.
 - A failed job runs again after `JOBS_RETRY_DELAY_SECONDS`. Each next delay
   is two times longer.
+- The name of the job class is the type of the job in the SQLite table.
+  Thus each job class has a unique name.
+- With the SQLite backend, a job stays in the table until it ends. A job
+  survives a restart, and all processes on the same file share the jobs.
+- If a process stops during a job, a different worker starts the job again
+  after `JOBS_LEASE_SECONDS`. Thus a job handler must give the same result
+  if it runs two times.
+- `ScheduleLock` lets only one process enqueue each run of a schedule.
+  `JOBS_SCHEDULER_ENABLED=false` turns the scheduler off in a process.
 
 ### Platform
 
@@ -195,16 +237,17 @@ knows no feature module.
 | Module | Providers |
 |---|---|
 | `clock` | `Clock`, and `FixedClock` for tests |
+| `database` | `Database`: the SQLite connection, if the backend is `sqlite` |
 | `events` | `EventBus` |
-| `jobs` | `JobQueue` (port), `InMemoryJobQueue`, `JobScheduler` |
+| `jobs` | `JobQueue` (port), `InMemoryJobQueue`, `SqliteJobQueue`, `JobScheduler`, `ScheduleLock` (port), `InMemoryScheduleLock`, `SqliteScheduleLock` |
 | `mail` | `Mailer` (port), `LogMailer` |
 | `request_logging` | A global interceptor that writes one log record for each request |
 
 ### Configuration
 
 - `app_settings.py` is the one model of the configuration. Each key starts
-  with the name of the module that reads it, for example `IDENTITY_` or
-  `JOBS_`.
+  with the name of the module that reads it, for example `DATABASE_`,
+  `IDENTITY_` or `JOBS_`.
 - If a value is missing or not valid, the application does not start.
 - `.env` holds the local values, and git ignores it. `.env.example` gives
   each key. A value in the environment overrides the value in `.env`.
@@ -230,6 +273,8 @@ knows no feature module.
 - The `client` fixture gives the full application with `FixedClock`, a fast
   password hasher and `RecordingMailer`. The events and the jobs run as in
   production. Use `wait_until()` for work in the background.
+- Each test that uses `client` runs two times: one time with the memory
+  backend, and one time with a new SQLite file in `tmp_path`.
 - A test of an application handler makes the handler directly, with the
   adapters in memory. It does not start the application.
 - `conftest.py` puts the test configuration in the environment before a test
@@ -249,9 +294,11 @@ knows no feature module.
 
 ## Limits
 
-- All data is in memory: tasks, users, revoked tokens, events and jobs. A
-  restart loses it.
-- Each process has its own scheduler. Thus with more than one process, a
-  scheduled job occurs one time in each process. Use a lock or one
-  scheduler process.
+- With the memory backend, a restart loses all data. Use one process only.
+- The events are always in memory. A restart loses the events that are in
+  progress.
+- Processes can share an SQLite file only on one host. For more than one
+  host, a database server is necessary, behind the same ports.
+- The SQLite schema has no versioned migrations. For a change to a table, a
+  migration tool is necessary.
 - The rule-based parser knows only English repeat phrases.

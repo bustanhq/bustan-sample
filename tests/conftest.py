@@ -2,9 +2,12 @@
 
 import os
 from collections.abc import Callable, Iterator
+from pathlib import Path
 
 import pytest
+from bustan import ConfigService
 from bustan.testing import AsgiTestClient, create_test_app
+from support.database import BACKENDS
 from support.fakes import RecordingMailer, wait_until
 
 from bustan_sample.modules.identity.domain.password_hasher import PasswordHasher
@@ -19,7 +22,9 @@ from bustan_sample.platform.mail import Mailer
 # thus the test settings are in the environment before that import. The
 # environment overrides a local .env file.
 os.environ["IDENTITY_JWT_SECRET"] = "a-test-secret-that-is-longer-than-32-characters"
+os.environ["DATABASE_BACKEND"] = "memory"
 os.environ["JOBS_RETRY_DELAY_SECONDS"] = "0"
+os.environ["JOBS_POLL_SECONDS"] = "0.01"
 
 PASSWORD = "a long password for the tests"
 
@@ -36,23 +41,39 @@ def mailer() -> RecordingMailer:
     return RecordingMailer()
 
 
-@pytest.fixture
-def client(clock: FixedClock, mailer: RecordingMailer) -> Iterator[AsgiTestClient]:
-    """A client for the full application.
+@pytest.fixture(params=BACKENDS)
+def client(
+    request: pytest.FixtureRequest,
+    clock: FixedClock,
+    mailer: RecordingMailer,
+    tmp_path: Path,
+) -> Iterator[AsgiTestClient]:
+    """A client for the full application, once for each database backend.
 
     The application has a fixed clock, a fast hasher and a mailer that records
-    the messages. The events and the jobs run as in production.
+    the messages. The events and the jobs run as in production. For the sqlite
+    backend, a ConfigService override selects a new database file. The import
+    of the root module read the environment before, thus an environment change
+    here has no effect.
     """
     from bustan_sample.app_module import AppModule
+    from bustan_sample.app_settings import AppSettings
 
-    app = create_test_app(
-        AppModule,
-        provider_overrides={
-            Clock: clock,
-            PasswordHasher: Argon2PasswordHasher.with_low_cost(),
-            Mailer: mailer,
-        },
-    )
+    overrides: dict[object, object] = {
+        Clock: clock,
+        PasswordHasher: Argon2PasswordHasher.with_low_cost(),
+        Mailer: mailer,
+    }
+    if request.param == "sqlite":
+        values = {
+            **os.environ,
+            "DATABASE_BACKEND": "sqlite",
+            "DATABASE_SQLITE_PATH": str(tmp_path / "app.db"),
+        }
+        overrides[ConfigService] = ConfigService(
+            AppSettings.model_validate(values).model_dump()
+        )
+    app = create_test_app(AppModule, provider_overrides=overrides)
     with AsgiTestClient(app) as test_client:
         yield test_client
 
