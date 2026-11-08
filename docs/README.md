@@ -8,7 +8,14 @@ Start the [tutorial](tutorial/README.md) to learn the design step by step.
 - [Run the application in a container](how-to/run-in-a-container.md)
 - [Use the SQLite backend](how-to/use-the-sqlite-backend.md)
 - [Add an adapter for an external API](how-to/add-an-external-api.md)
+- [Report a bustan issue, or send a fix](how-to/report-a-bustan-issue.md)
 - [Cut a release](how-to/cut-a-release.md)
+
+## Explanation
+
+- [bustan or FastAPI](explanation/bustan-or-fastapi.md): the rules that
+  bustan enforces, the cases for FastAPI, and a section for the `AGENTS.md`
+  of a project.
 
 ## Reference
 

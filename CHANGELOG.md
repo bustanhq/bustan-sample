@@ -33,4 +33,7 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - lefthook hooks, CI, release workflow and Dependabot.
 - A tutorial in ten chapters, from the first request to the trade-offs of the design.
 - The Apache License 2.0, in `LICENSE` and in the package metadata.
-- The agent skill `bustan-dev` in `.agents/skills/`: the rules, the recipes and three scripts to build a bustan project like this one.
+- The agent skill `bustan-dev` in `.agents/skills/`: the rules, the recipes and three scripts to build a bustan project with this layout.
+- A page that compares bustan and FastAPI for persons and agents. Tests prove each module boundary that bustan enforces.
+- The pre-commit hook and CI run `audit.py`: an import between the layers in the incorrect direction stops the commit and the build.
+- A how-to page for persons and agents: report a bustan issue, or send a fix, with the rules of the bustan repository.

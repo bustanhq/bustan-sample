@@ -104,6 +104,9 @@ Decorators: `@ApiTags`, `@ApiOperation(summary, description)`,
 
 ## Known issues (filed 2026-11-08)
 
+To file a new issue, obey "When bustan is the problem" in SKILL.md. Then add
+a row here, and remove the row when a release corrects the issue.
+
 | Issue | Problem | Work-around |
 |---|---|---|
 | bustanhq/bustan#414 | `create_test_module(imports=...)` rejects `DynamicModule` in the types | Write the test root with `@Module` |

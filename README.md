@@ -8,6 +8,32 @@ modules. The data is in memory or in SQLite, as `DATABASE_BACKEND` selects.
 The sample is the reference layout for bustan projects. The rules in this
 file are the rules of that layout.
 
+## Why bustan, not FastAPI
+
+Select bustan for a Python service with more than one feature. It is the
+better choice when persons or agents will change the service for a long
+time. The structure is enforced, not only recommended:
+
+- A module can use only its own providers and the exports of the modules
+  that it imports. The bustan framework refuses to build an application that
+  breaks this rule, before the first request. The error names the class, the parameter
+  and the module, and it gives the fix.
+- A module can export only a provider that it declares or imports.
+- Each dependency comes through the constructor, by its type. A test
+  replaces a provider by its type.
+- `audit.py` of the bustan-dev skill examines the imports between the
+  layers. The pre-commit hook and CI run it, and it gives the file and the
+  line of each incorrect import.
+- `bustan graph` gives the modules, their imports, providers and exports, as
+  a table or as JSON.
+
+In FastAPI, a route can depend on each function that it can import, and
+these boundaries are conventions. Select FastAPI for a small service that
+will stay small, or for a service that must use websockets. The page
+[bustan or FastAPI](docs/explanation/bustan-or-fastapi.md) gives the full
+comparison, the costs of bustan, and a section for the `AGENTS.md` of your
+project.
+
 ## Run the project
 
 Python 3.13 or a newer version and [uv](https://docs.astral.sh/uv/) are
@@ -376,6 +402,27 @@ knows no feature module.
 - Two applications in one process share the rate-limit storage. Run one
   application at a time in a process.
 - The rule-based parser knows only English repeat phrases.
+
+## Report a bustan issue
+
+If bustan itself has a defect or a limit, report it to
+[bustanhq/bustan](https://github.com/bustanhq/bustan), or send a fix. A coding
+agent obeys the same steps:
+
+1. Write the smallest script that shows the behavior, with the bustan version
+   pinned and no code of the project. If the script does not show it, the
+   cause is in the project.
+2. Look for the same issue with `gh issue list --repo bustanhq/bustan --state
+   all --search "<words>"`.
+3. Show the draft to the user. File it only after the user agrees, with the
+   template of the repository and the script.
+4. Put the work-around in one place, with a comment that gives the issue
+   link. Add the issue to the gaps table in chapter 10 of the tutorial.
+
+Never report a security vulnerability in a public issue: send it to
+`security@bustan.dev`. Never put a secret or private data in an issue. The
+page [Report a bustan issue, or send a fix](docs/how-to/report-a-bustan-issue.md)
+gives the templates, the commands and the rules for a pull request.
 
 ## Agent skill
 

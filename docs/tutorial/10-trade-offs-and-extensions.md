@@ -28,7 +28,9 @@ next step is a new adapter or a new provider, not a rewrite.
 
 ### Gaps in bustan 2.0.3
 
-The code works around these. They are filed upstream:
+The code works around these. They are filed upstream. To file a new one, obey
+[Report a bustan issue, or send a fix](../how-to/report-a-bustan-issue.md),
+then add a row here:
 
 | Issue | Gap | The work-around in this code |
 |---|---|---|

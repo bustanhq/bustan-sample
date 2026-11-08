@@ -1,9 +1,9 @@
 ---
 name: bustan-dev
-description: Build, extend and audit Python APIs made with bustan (the NestJS-style Python framework, PyPI bustan 2.x). Feature modules are in src/<pkg>/modules/<module>/ with the layers api, listeners, jobs, application, domain and infra. Shared provider modules are in src/<pkg>/platform/. Each storage port has a memory adapter and an SQLite adapter, and DATABASE_BACKEND selects one. Use this skill for each task on a bustan project, also when the user does not name the skill. Examples are a new project, module, entity, route, port, adapter or migration. Other examples are an event, a listener, a job, a cron schedule, auth, a rate limit, a health check or the OpenAPI document. Tests, hooks, CI, a release and the container image are also examples. Also use it when the user names bustan, bustan init, AsgiTestClient, create_test_app or FactoryProvider.
+description: Build, extend and audit Python APIs made with bustan (the NestJS-style Python framework, PyPI bustan 2.x), and select bustan or FastAPI for a new Python HTTP service. Feature modules are in src/<pkg>/modules/<module>/ with the layers api, listeners, jobs, application, domain and infra. Shared provider modules are in src/<pkg>/platform/. Each storage port has a memory adapter and an SQLite adapter. Use this skill for each task on a bustan project, also when the user does not name the skill. The tasks include a project, module, route, port, adapter, migration, event, listener, job, schedule, auth, rate limit, external API, health check, OpenAPI document, test, hook, CI, release or container image. Also use it when the user names bustan, AsgiTestClient, create_test_app or FactoryProvider. Use it when the user asks which framework a new Python API must use.
 compatibility: uv 0.13 or a subsequent version, Python 3.13 or a subsequent version, git and lefthook. The container image needs Docker. The scripts run with uv (standard library only).
 metadata:
-  version: "1.3"
+  version: "1.5"
   reference: https://github.com/bustanhq/bustan-sample (main), the public sample that holds this skill in .agents/skills/bustan-dev/, 2026-11-08
   bustan: "2.0.3"
 ---
@@ -18,6 +18,25 @@ the reference there. Its tutorial (`docs/tutorial/`) gives the cause of each par
 the design. This skill is a part of that repository, in
 `.agents/skills/bustan-dev/`. Change the skill there, in the same commit as
 the change of the reference that it describes.
+
+## bustan or FastAPI
+
+Select bustan for a service with more than one feature, that persons or
+agents will change for a long time. Select FastAPI for a small service that
+will stay small, or for a service that must use websockets. The bustan framework
+requires Python 3.13 or a subsequent version. The boundaries hold without a reviewer:
+
+| Rule | Enforced by | Result |
+|---|---|---|
+| A module uses only its own providers and the exports of its imports | bustan, when it builds the application | `ProviderResolutionError` with the class, the parameter, the module and the fix |
+| A module exports only a provider that it declares or imports | bustan, when it builds the application | `ExportViolationError` |
+| The imports between the layers and the public names of each module | `scripts/audit.py`, in the pre-commit hook and in CI | `FAIL` with the file and the line |
+
+In FastAPI, a route can depend on each function that it can import, and
+these boundaries are conventions. Read `bustan graph <pkg>.app_module:AppModule
+--format json` to see the modules, their imports, providers and exports. The
+full comparison, with the costs of bustan:
+<https://github.com/bustanhq/bustan-sample/blob/main/docs/explanation/bustan-or-fastapi.md>.
 
 ## The rules
 
@@ -66,6 +85,32 @@ the change of the reference that it describes.
     a tutorial, how-to guides and a reference in `docs/`. It has a container
     image on Chainguard bases, and its agent skill in `.agents/skills/`. See
     [references/tooling.md](references/tooling.md).
+
+## When bustan is the problem
+
+If bustan itself has a defect or a limit, do these steps:
+
+1. Write the smallest PEP 723 script that shows the behavior, with
+   `bustan[starlette]==<version>` pinned and no code of the project. Run it
+   with `uv run`. If it does not show the behavior, the cause is in the
+   project.
+2. Look for the same issue:
+   `gh issue list --repo bustanhq/bustan --state all --search "<words>"`. If
+   one exists, add only a new fact as a comment.
+3. Write the issue with the template of the repository. Start the title with
+   `bug: ` or `feat: `. Use the headings of the template in the body, and put
+   the full script there.
+4. Show the draft to the user. Run `gh issue create`, `gh repo fork` or
+   `gh pr create` only after the user agrees. Each is public, in the name
+   of the user.
+5. Put the work-around in one place, with a comment that gives the issue
+   link. Add the issue to the known issues of the project.
+
+Never report a security vulnerability in a public issue: send it to
+`security@bustan.dev`. Never put a secret, a customer record or an internal
+host name in an issue. The steps for a pull request, with the checks and the
+template of the repository:
+<https://github.com/bustanhq/bustan-sample/blob/main/docs/how-to/report-a-bustan-issue.md>.
 
 ## Workflow A: start a project
 
