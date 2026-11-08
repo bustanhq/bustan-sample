@@ -17,8 +17,9 @@ A **provider** is a class that bustan builds for you. You mark it with
 ```python
 @Injectable()
 class CreateTaskHandler:
-    def __init__(self, repository: TaskRepository, clock: Clock, parser: RecurrenceParser) -> None:
-        ...
+    def __init__(
+        self, repository: TaskRepository, clock: Clock, parser: RecurrenceParser
+    ) -> None: ...
 ```
 
 You never write `CreateTaskHandler(...)` yourself. bustan reads the type hints,

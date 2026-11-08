@@ -70,8 +70,8 @@ itself:
 
 ```python
 def test_something() -> None:
-    async def scenario() -> None:
-        ...
+    async def scenario() -> None: ...
+
     asyncio.run(scenario())
 ```
 

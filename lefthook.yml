@@ -20,6 +20,11 @@ pre-commit:
             glob: "*.py"
             stage_fixed: true
             run: uv run --frozen ruff check --fix {staged_files} && uv run --frozen ruff format {staged_files}
+          # ruff also formats the Python blocks of Markdown files, as CI checks.
+          - name: ruff-markdown
+            glob: "*.md"
+            stage_fixed: true
+            run: uv run --frozen ruff format {staged_files}
           - name: ty
             run: uv run --frozen ty check
           - name: secrets
