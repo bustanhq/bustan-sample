@@ -4,13 +4,14 @@ from uuid import UUID
 import aiosqlite
 from bustan import Injectable
 
-from bustan_sample.platform.database import Database, from_text, to_text
+from bustan_sample.platform.database import Database, Migration, from_text, to_text
 
 from ..domain.errors import EmailTakenError
 from ..domain.user import User
 from ..domain.user_repository import UserRepository
 
-_SCHEMA = """
+# Add a migration with the next version for each change. Never edit one.
+_V1 = """
 CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,
     email TEXT NOT NULL UNIQUE,
@@ -18,6 +19,7 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TEXT NOT NULL
 );
 """
+MIGRATIONS = (Migration(1, "create the table users", _V1),)
 _SAVE = """
 INSERT INTO users (id, email, password_hash, created_at)
 VALUES (:id, :email, :password_hash, :created_at)
@@ -39,7 +41,7 @@ class SqliteUserRepository(UserRepository):
         self._database = database
 
     async def on_module_init(self) -> None:
-        await self._database.execute_script(_SCHEMA)
+        await self._database.migrate("identity.users", MIGRATIONS)
 
     async def save(self, user: User) -> None:
         try:
@@ -56,15 +58,11 @@ class SqliteUserRepository(UserRepository):
             raise EmailTakenError() from exc
 
     async def get(self, user_id: UUID) -> User | None:
-        row = await self._database.fetch_one(
-            "SELECT * FROM users WHERE id = ?", (str(user_id),)
-        )
+        row = await self._database.fetch_one("SELECT * FROM users WHERE id = ?", (str(user_id),))
         return None if row is None else _to_user(row)
 
     async def get_by_email(self, email: str) -> User | None:
-        row = await self._database.fetch_one(
-            "SELECT * FROM users WHERE email = ?", (email,)
-        )
+        row = await self._database.fetch_one("SELECT * FROM users WHERE email = ?", (email,))
         return None if row is None else _to_user(row)
 
 

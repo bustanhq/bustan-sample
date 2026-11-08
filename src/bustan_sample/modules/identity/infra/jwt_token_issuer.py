@@ -58,6 +58,4 @@ class JwtTokenIssuer(TokenIssuer):
             return None
         if expires_at <= now:
             return None
-        return TokenClaims(
-            user_id=user_id, token_id=str(claims["jti"]), expires_at=expires_at
-        )
+        return TokenClaims(user_id=user_id, token_id=str(claims["jti"]), expires_at=expires_at)

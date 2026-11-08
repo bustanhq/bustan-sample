@@ -27,9 +27,7 @@ class _Setup:
         self.users = InMemoryUserRepository()
         self.revoked = InMemoryRevokedTokenRepository()
         self.issuer = JwtTokenIssuer(ConfigService({"IDENTITY_JWT_SECRET": SECRET}))
-        self.handler = AuthenticateTokenHandler(
-            self.issuer, self.revoked, self.users, self.clock
-        )
+        self.handler = AuthenticateTokenHandler(self.issuer, self.revoked, self.users, self.clock)
 
     async def ada(self) -> User:
         user = User.create("ada@example.com", "hash", self.clock.now())
@@ -70,11 +68,7 @@ def test_an_expired_token_or_an_unknown_user_gives_none() -> None:
         ada = await setup.ada()
         expired = setup.issuer.issue(ada.id, setup.clock.now() - timedelta(hours=1))
         stranger = setup.issuer.issue(uuid4(), setup.clock.now())
-        assert (
-            await setup.handler.execute(AuthenticateTokenQuery(expired.value)) is None
-        )
-        assert (
-            await setup.handler.execute(AuthenticateTokenQuery(stranger.value)) is None
-        )
+        assert await setup.handler.execute(AuthenticateTokenQuery(expired.value)) is None
+        assert await setup.handler.execute(AuthenticateTokenQuery(stranger.value)) is None
 
     asyncio.run(scenario())

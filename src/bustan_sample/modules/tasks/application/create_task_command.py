@@ -22,17 +22,13 @@ class CreateTaskCommand:
 
 @Injectable()
 class CreateTaskHandler:
-    def __init__(
-        self, repository: TaskRepository, clock: Clock, parser: RecurrenceParser
-    ) -> None:
+    def __init__(self, repository: TaskRepository, clock: Clock, parser: RecurrenceParser) -> None:
         self._repository = repository
         self._clock = clock
         self._parser = parser
 
     async def execute(self, command: CreateTaskCommand) -> Task:
-        recurrence = (
-            None if command.repeat is None else await self._parser.parse(command.repeat)
-        )
+        recurrence = None if command.repeat is None else await self._parser.parse(command.repeat)
         task = Task.create(
             command.owner_id,
             command.title,

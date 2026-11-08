@@ -69,9 +69,7 @@ class InMemoryJobQueue(JobQueue):
         # The queue is made here, thus it belongs to the event loop that serves
         # the application.
         self._queue = asyncio.Queue()
-        self._workers = [
-            asyncio.create_task(self._work()) for _ in range(self._worker_count)
-        ]
+        self._workers = [asyncio.create_task(self._work()) for _ in range(self._worker_count)]
 
     async def on_application_shutdown(self, signal: str | None) -> None:
         if self._queue is None:

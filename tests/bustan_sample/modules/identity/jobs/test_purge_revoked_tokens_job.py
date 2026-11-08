@@ -2,7 +2,6 @@ import asyncio
 from datetime import timedelta
 
 from bustan import ConfigService
-from support.fakes import RecordingJobQueue
 
 from bustan_sample.modules.identity.infra.in_memory_revoked_token_repository import (
     InMemoryRevokedTokenRepository,
@@ -13,6 +12,8 @@ from bustan_sample.modules.identity.jobs.purge_revoked_tokens_job import (
 )
 from bustan_sample.platform.clock import FixedClock
 from bustan_sample.platform.jobs import InMemoryScheduleLock, JobScheduler
+
+from support.fakes import RecordingJobQueue
 
 
 class _Setup:

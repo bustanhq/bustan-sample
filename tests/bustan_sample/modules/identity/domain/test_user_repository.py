@@ -8,7 +8,6 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
-from support.database import BACKENDS, open_sqlite
 
 from bustan_sample.modules.identity.domain.user import User
 from bustan_sample.modules.identity.domain.user_repository import UserRepository
@@ -18,6 +17,8 @@ from bustan_sample.modules.identity.infra.in_memory_user_repository import (
 from bustan_sample.modules.identity.infra.sqlite_user_repository import (
     SqliteUserRepository,
 )
+
+from support.database import BACKENDS, open_sqlite
 
 T0 = datetime(2026, 1, 1, tzinfo=UTC)
 

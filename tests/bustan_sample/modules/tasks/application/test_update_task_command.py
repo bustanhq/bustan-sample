@@ -30,9 +30,7 @@ class _Setup:
     def __init__(self) -> None:
         self.repository = InMemoryTaskRepository()
         self.clock = FixedClock()
-        self.handler = UpdateTaskHandler(
-            self.repository, self.clock, RuleBasedRecurrenceParser()
-        )
+        self.handler = UpdateTaskHandler(self.repository, self.clock, RuleBasedRecurrenceParser())
 
     async def add(self, task: Task) -> Task:
         await self.repository.save(task)
@@ -64,12 +62,8 @@ def test_update_changes_only_the_given_fields() -> None:
 def test_clear_due_on_removes_the_due_date() -> None:
     async def scenario() -> None:
         setup = _Setup()
-        task = await setup.add(
-            Task.create(ADA, "a", "", date(2026, 2, 1), setup.clock.now())
-        )
-        updated = await setup.handler.execute(
-            UpdateTaskCommand(ADA, task.id, clear_due_on=True)
-        )
+        task = await setup.add(Task.create(ADA, "a", "", date(2026, 2, 1), setup.clock.now()))
+        updated = await setup.handler.execute(UpdateTaskCommand(ADA, task.id, clear_due_on=True))
         assert updated.due_on is None
 
     asyncio.run(scenario())
@@ -129,8 +123,6 @@ def test_removing_the_due_date_of_a_recurring_task_is_refused() -> None:
             Task.create(ADA, "a", "", date(2026, 2, 2), setup.clock.now(), WEEKLY)
         )
         with pytest.raises(InvalidTaskError):
-            await setup.handler.execute(
-                UpdateTaskCommand(ADA, task.id, clear_due_on=True)
-            )
+            await setup.handler.execute(UpdateTaskCommand(ADA, task.id, clear_due_on=True))
 
     asyncio.run(scenario())

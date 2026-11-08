@@ -56,9 +56,7 @@ class RecurrenceRule:
     def describe(self) -> str:
         """Return the rule as a phrase, for example "every 2 weeks on Monday"."""
         unit = _UNITS[self.frequency]
-        text = (
-            f"every {unit}" if self.interval == 1 else f"every {self.interval} {unit}s"
-        )
+        text = f"every {unit}" if self.interval == 1 else f"every {self.interval} {unit}s"
         if self.weekday is not None:
             text += f" on {WEEKDAY_NAMES[self.weekday].capitalize()}"
         return text

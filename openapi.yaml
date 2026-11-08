@@ -228,10 +228,24 @@ components:
       title: UpdateTaskRequest
       type: object
 paths:
+  /health/live:
+    get:
+      operationId: HealthController.live
+      responses:
+        '200':
+          description: Successful Response
+  /health/ready:
+    get:
+      operationId: HealthController.ready
+      responses:
+        '200':
+          description: Successful Response
   /identity/register:
     post:
       operationId: IdentityController.register
       responses:
+        '429':
+          description: Too many requests from this client
         '409':
           description: A user with this email exists
         '400':
@@ -255,6 +269,8 @@ paths:
     post:
       operationId: IdentityController.log_in
       responses:
+        '429':
+          description: Too many requests from this client
         '401':
           description: The email or the password is not correct
         '200':
@@ -308,11 +324,15 @@ paths:
       responses:
         '401':
           description: No valid token
+        '400':
+          description: The status, the limit or the offset is not valid
         '200':
           description: Your tasks, in the sequence of creation
       tags:
       - tasks
       summary: List your tasks, filtered on status if given
+      description: Pages of limit tasks (1 to 100, default 50). If a next page exists, the Link header
+        gives it with rel="next".
       security:
       - bearer: []
       parameters:
@@ -326,6 +346,16 @@ paths:
           - in_progress
           - done
           nullable: true
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
     post:
       operationId: TasksController.create_task
       responses:

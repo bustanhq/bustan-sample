@@ -4,10 +4,11 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from bustan import ConfigService
-from support.fakes import RecordingJobQueue
 
 from bustan_sample.platform.clock import FixedClock
 from bustan_sample.platform.jobs import InMemoryScheduleLock, JobScheduler, ScheduleLock
+
+from support.fakes import RecordingJobQueue
 
 START = datetime(2026, 1, 1, 9, 3, tzinfo=UTC)
 
@@ -34,13 +35,9 @@ def test_a_schedule_enqueues_at_each_agreeing_time_after_the_start() -> None:
         scheduler.schedule("every-10-minutes", "*/10 * * * *", Tick)
         assert await scheduler.tick(START) == []
         assert await scheduler.tick(START + timedelta(minutes=6)) == []
-        assert await scheduler.tick(START + timedelta(minutes=7)) == [
-            "every-10-minutes"
-        ]
+        assert await scheduler.tick(START + timedelta(minutes=7)) == ["every-10-minutes"]
         assert await scheduler.tick(START + timedelta(minutes=8)) == []
-        assert await scheduler.tick(START + timedelta(minutes=17)) == [
-            "every-10-minutes"
-        ]
+        assert await scheduler.tick(START + timedelta(minutes=17)) == ["every-10-minutes"]
         assert queue.enqueued == [Tick(), Tick()]
 
     asyncio.run(scenario())

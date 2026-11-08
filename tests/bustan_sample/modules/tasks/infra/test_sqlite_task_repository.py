@@ -3,12 +3,12 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 from uuid import uuid4
 
-from support.database import open_sqlite
-
 from bustan_sample.modules.tasks.domain.task import Task
 from bustan_sample.modules.tasks.infra.sqlite_task_repository import (
     SqliteTaskRepository,
 )
+
+from support.database import open_sqlite
 
 T0 = datetime(2026, 1, 1, 9, 0, tzinfo=UTC)
 

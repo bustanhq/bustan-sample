@@ -4,6 +4,10 @@ import time
 from collections.abc import Callable
 from typing import cast
 
+from bustan import ConfigService
+
+from bustan_sample.platform.database import Database
+from bustan_sample.platform.events import EventBus
 from bustan_sample.platform.jobs import JobHandler, JobQueue
 from bustan_sample.platform.mail import Mailer
 
@@ -41,3 +45,8 @@ def wait_until(condition: Callable[[], bool], timeout: float = 2.0) -> None:
         if time.monotonic() > deadline:
             raise AssertionError("the condition did not become true in time")
         time.sleep(0.01)
+
+
+def memory_event_bus() -> EventBus:
+    """Return an event bus for the memory backend, with no job queue."""
+    return EventBus(RecordingJobQueue(), Database(ConfigService({})))

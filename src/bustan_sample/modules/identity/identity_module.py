@@ -56,9 +56,7 @@ def _revoked_token_repository(database: Database) -> RevokedTokenRepository:
     imports=[ClockModule, DatabaseModule, EventsModule, JobsModule, MailModule],
     controllers=[IdentityController],
     providers=[
-        FactoryProvider(
-            provide=UserRepository, use_factory=_user_repository, inject=(Database,)
-        ),
+        FactoryProvider(provide=UserRepository, use_factory=_user_repository, inject=(Database,)),
         FactoryProvider(
             provide=RevokedTokenRepository,
             use_factory=_revoked_token_repository,

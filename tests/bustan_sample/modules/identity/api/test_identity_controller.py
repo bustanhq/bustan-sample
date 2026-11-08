@@ -1,10 +1,11 @@
 from collections.abc import Callable
 
 from bustan.testing import AsgiTestClient
-from support.fakes import RecordingMailer, wait_until
 
 from bustan_sample.modules.identity.jobs.send_welcome_email_job import SUBJECT
 from bustan_sample.platform.clock import FixedClock
+
+from support.fakes import RecordingMailer, wait_until
 
 SignUp = Callable[[str], dict[str, str]]
 PASSWORD = "a long password for the tests"
@@ -14,9 +15,7 @@ def test_registration_sends_one_welcome_email_in_the_background(
     client: AsgiTestClient, mailer: RecordingMailer
 ) -> None:
     # The route answers first. The event handler and the job send the email.
-    client.post(
-        "/identity/register", json={"email": "ada@example.com", "password": PASSWORD}
-    )
+    client.post("/identity/register", json={"email": "ada@example.com", "password": PASSWORD})
     wait_until(lambda: len(mailer.sent) == 1)
     [(to, subject, _)] = mailer.sent
     assert (to, subject) == ("ada@example.com", SUBJECT)
@@ -25,17 +24,11 @@ def test_registration_sends_one_welcome_email_in_the_background(
 def test_a_refused_registration_sends_no_email(
     client: AsgiTestClient, mailer: RecordingMailer
 ) -> None:
-    client.post(
-        "/identity/register", json={"email": "ada@example.com", "password": "short"}
-    )
-    client.post(
-        "/identity/register", json={"email": "not-an-email", "password": PASSWORD}
-    )
+    client.post("/identity/register", json={"email": "ada@example.com", "password": "short"})
+    client.post("/identity/register", json={"email": "not-an-email", "password": PASSWORD})
     # The queue is empty when the next route answers: the two refusals
     # published nothing, thus nothing can arrive later.
-    client.post(
-        "/identity/register", json={"email": "bob@example.com", "password": PASSWORD}
-    )
+    client.post("/identity/register", json={"email": "bob@example.com", "password": PASSWORD})
     wait_until(lambda: len(mailer.sent) >= 1)
     assert [to for to, _, _ in mailer.sent] == ["bob@example.com"]
 
@@ -52,23 +45,17 @@ def test_register_returns_201_without_the_password_hash(client: AsgiTestClient) 
 def test_register_refuses_a_taken_email_and_a_weak_password(
     client: AsgiTestClient,
 ) -> None:
-    client.post(
-        "/identity/register", json={"email": "ada@example.com", "password": PASSWORD}
-    )
+    client.post("/identity/register", json={"email": "ada@example.com", "password": PASSWORD})
     taken = client.post(
         "/identity/register", json={"email": "ADA@example.com", "password": PASSWORD}
     )
-    weak = client.post(
-        "/identity/register", json={"email": "bob@example.com", "password": "short"}
-    )
+    weak = client.post("/identity/register", json={"email": "bob@example.com", "password": "short"})
     assert taken.status_code == 409
     assert weak.status_code == 400
     assert weak.headers["content-type"].startswith("application/problem+json")
 
 
-def test_login_gives_a_bearer_token_that_expires(
-    client: AsgiTestClient, clock: FixedClock
-) -> None:
+def test_login_gives_a_bearer_token_that_expires(client: AsgiTestClient, clock: FixedClock) -> None:
     credentials = {"email": "ada@example.com", "password": PASSWORD}
     client.post("/identity/register", json=credentials)
     response = client.post("/identity/login", json=credentials)
@@ -80,9 +67,7 @@ def test_login_gives_a_bearer_token_that_expires(
 
 
 def test_bad_credentials_give_401_with_one_message(client: AsgiTestClient) -> None:
-    client.post(
-        "/identity/register", json={"email": "ada@example.com", "password": PASSWORD}
-    )
+    client.post("/identity/register", json={"email": "ada@example.com", "password": PASSWORD})
     wrong_password = client.post(
         "/identity/login", json={"email": "ada@example.com", "password": "x" * 20}
     )
@@ -93,9 +78,7 @@ def test_bad_credentials_give_401_with_one_message(client: AsgiTestClient) -> No
     assert wrong_password.json()["detail"] == unknown_email.json()["detail"]
 
 
-def test_me_gives_the_user_of_the_token(
-    client: AsgiTestClient, sign_up: SignUp
-) -> None:
+def test_me_gives_the_user_of_the_token(client: AsgiTestClient, sign_up: SignUp) -> None:
     response = client.get("/identity/me", headers=sign_up("ada@example.com"))
     assert response.status_code == 200
     assert response.json()["email"] == "ada@example.com"
@@ -122,3 +105,12 @@ def test_logout_revokes_the_token_before_it_expires(
     assert client.get("/tasks", headers=ada).status_code == 401
     assert client.post("/identity/logout", headers=ada).status_code == 401
     assert client.get("/identity/me", headers=other_session).status_code == 200
+
+
+def test_login_refuses_the_eleventh_request_in_a_minute(client: AsgiTestClient) -> None:
+    credentials = {"email": "ada@example.com", "password": "x" * 20}
+    statuses = [client.post("/identity/login", json=credentials).status_code for _ in range(11)]
+    refused = client.post("/identity/login", json=credentials)
+    assert statuses[:10] == [401] * 10
+    assert statuses[10] == refused.status_code == 429
+    assert int(refused.headers["retry-after"]) > 0

@@ -36,9 +36,7 @@ def _schedule_lock(database: Database, clock: Clock) -> ScheduleLock:
             use_factory=_job_queue,
             inject=(Database, ConfigService, Clock),
         ),
-        FactoryProvider(
-            provide=ScheduleLock, use_factory=_schedule_lock, inject=(Database, Clock)
-        ),
+        FactoryProvider(provide=ScheduleLock, use_factory=_schedule_lock, inject=(Database, Clock)),
         JobScheduler,
     ],
     exports=[JobQueue, JobScheduler],

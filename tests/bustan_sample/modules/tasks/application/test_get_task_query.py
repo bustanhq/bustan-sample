@@ -22,9 +22,7 @@ def test_get_returns_the_task_of_the_owner() -> None:
         repository = InMemoryTaskRepository()
         task = Task.create(ADA, "a", "", None, FixedClock().now())
         await repository.save(task)
-        assert (
-            await GetTaskHandler(repository).execute(GetTaskQuery(ADA, task.id)) == task
-        )
+        assert await GetTaskHandler(repository).execute(GetTaskQuery(ADA, task.id)) == task
 
     asyncio.run(scenario())
 

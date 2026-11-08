@@ -20,10 +20,7 @@ def test_the_stored_user_is_returned() -> None:
         users = InMemoryUserRepository()
         ada = User.create("ada@example.com", "hash", datetime(2026, 1, 1, tzinfo=UTC))
         await users.save(ada)
-        assert (
-            await GetCurrentUserHandler(users).execute(GetCurrentUserQuery(ada.id))
-            == ada
-        )
+        assert await GetCurrentUserHandler(users).execute(GetCurrentUserQuery(ada.id)) == ada
 
     asyncio.run(scenario())
 

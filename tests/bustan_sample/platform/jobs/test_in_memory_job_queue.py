@@ -13,9 +13,7 @@ class Work:
 
 
 def _queue() -> InMemoryJobQueue:
-    return InMemoryJobQueue(
-        ConfigService({"JOBS_WORKERS": 2, "JOBS_RETRY_DELAY_SECONDS": 0})
-    )
+    return InMemoryJobQueue(ConfigService({"JOBS_WORKERS": 2, "JOBS_RETRY_DELAY_SECONDS": 0}))
 
 
 def test_an_enqueued_job_runs_on_a_worker() -> None:

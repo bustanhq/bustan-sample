@@ -3,13 +3,14 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
-from support.database import open_sqlite
 
 from bustan_sample.modules.identity.domain.errors import EmailTakenError
 from bustan_sample.modules.identity.domain.user import User
 from bustan_sample.modules.identity.infra.sqlite_user_repository import (
     SqliteUserRepository,
 )
+
+from support.database import open_sqlite
 
 T0 = datetime(2026, 1, 1, tzinfo=UTC)
 

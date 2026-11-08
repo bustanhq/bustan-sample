@@ -18,7 +18,8 @@ from bustan_sample.modules.identity.infra.in_memory_user_repository import (
     InMemoryUserRepository,
 )
 from bustan_sample.platform.clock import FixedClock
-from bustan_sample.platform.events import EventBus
+
+from support.fakes import memory_event_bus
 
 PASSWORD = "a long password for the tests"
 
@@ -26,7 +27,7 @@ PASSWORD = "a long password for the tests"
 class _Setup:
     def __init__(self) -> None:
         self.users = InMemoryUserRepository()
-        self.events = EventBus()
+        self.events = memory_event_bus()
         self.published: list[UserRegistered] = []
         self.handler = RegisterUserHandler(
             self.users, Argon2PasswordHasher.with_low_cost(), FixedClock(), self.events
@@ -41,15 +42,11 @@ class _Setup:
 def test_register_stores_the_user_and_publishes_user_registered() -> None:
     async def scenario() -> None:
         setup = _Setup()
-        user = await setup.handler.execute(
-            RegisterUserCommand("Ada@Example.com", PASSWORD)
-        )
+        user = await setup.handler.execute(RegisterUserCommand("Ada@Example.com", PASSWORD))
         await setup.events.drain(1)
         assert await setup.users.get_by_email("ada@example.com") == user
         assert user.password_hash.startswith("$argon2id$")
-        assert setup.published == [
-            UserRegistered(user.id, "ada@example.com", user.created_at)
-        ]
+        assert setup.published == [UserRegistered(user.id, "ada@example.com", user.created_at)]
 
     asyncio.run(scenario())
 
@@ -59,9 +56,7 @@ def test_a_second_user_with_the_same_email_is_refused() -> None:
         setup = _Setup()
         await setup.handler.execute(RegisterUserCommand("ada@example.com", PASSWORD))
         with pytest.raises(EmailTakenError):
-            await setup.handler.execute(
-                RegisterUserCommand("ADA@example.com", PASSWORD)
-            )
+            await setup.handler.execute(RegisterUserCommand("ADA@example.com", PASSWORD))
         await setup.events.drain(1)
         assert len(setup.published) == 1
 

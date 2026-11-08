@@ -5,11 +5,11 @@ from dataclasses import dataclass
 from datetime import timedelta
 from pathlib import Path
 
-from support.database import open_sqlite, sqlite_config
-
 from bustan_sample.platform.clock import FixedClock
 from bustan_sample.platform.database import Database, to_text
 from bustan_sample.platform.jobs import SqliteJobQueue
+
+from support.database import open_sqlite, sqlite_config
 
 
 @dataclass(frozen=True)

@@ -40,9 +40,6 @@ class LogInHandler:
         except InvalidUserError:
             user = None
         password_hash = None if user is None else user.password_hash
-        if (
-            not await self._hasher.verify(password_hash, command.password)
-            or user is None
-        ):
+        if not await self._hasher.verify(password_hash, command.password) or user is None:
             raise InvalidCredentialsError()
         return self._issuer.issue(user.id, self._clock.now())

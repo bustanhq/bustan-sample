@@ -7,7 +7,6 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
-from support.database import BACKENDS, open_sqlite
 
 from bustan_sample.platform.clock import FixedClock
 from bustan_sample.platform.jobs import (
@@ -15,6 +14,8 @@ from bustan_sample.platform.jobs import (
     ScheduleLock,
     SqliteScheduleLock,
 )
+
+from support.database import BACKENDS, open_sqlite
 
 RUN = datetime(2026, 1, 1, 9, 10, tzinfo=UTC)
 
@@ -50,9 +51,7 @@ def test_two_processes_on_one_file_claim_a_run_one_time(tmp_path: Path) -> None:
             second = SqliteScheduleLock(second_db, FixedClock())
             await first.on_module_init()
             await second.on_module_init()
-            results = await asyncio.gather(
-                first.claim("purge", RUN), second.claim("purge", RUN)
-            )
+            results = await asyncio.gather(first.claim("purge", RUN), second.claim("purge", RUN))
         assert sorted(results) == [False, True]
 
     asyncio.run(scenario())

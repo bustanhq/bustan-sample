@@ -2,17 +2,19 @@ from datetime import datetime
 
 from bustan import Injectable
 
-from bustan_sample.platform.database import Database, to_text
+from bustan_sample.platform.database import Database, Migration, to_text
 
 from ..domain.revoked_token_repository import RevokedTokenRepository
 
-_SCHEMA = """
+# Add a migration with the next version for each change. Never edit one.
+_V1 = """
 CREATE TABLE IF NOT EXISTS revoked_tokens (
     token_id TEXT PRIMARY KEY,
     expires_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS revoked_tokens_by_expiry ON revoked_tokens (expires_at);
 """
+MIGRATIONS = (Migration(1, "create the table revoked_tokens", _V1),)
 
 
 @Injectable()
@@ -26,7 +28,7 @@ class SqliteRevokedTokenRepository(RevokedTokenRepository):
         self._database = database
 
     async def on_module_init(self) -> None:
-        await self._database.execute_script(_SCHEMA)
+        await self._database.migrate("identity.revoked_tokens", MIGRATIONS)
 
     async def revoke(self, token_id: str, expires_at: datetime) -> None:
         await self._database.execute(

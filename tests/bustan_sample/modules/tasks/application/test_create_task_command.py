@@ -64,9 +64,7 @@ def test_an_unknown_phrase_or_no_due_date_is_refused() -> None:
         handler, *_ = _handler()
         with pytest.raises(InvalidTaskError):
             await handler.execute(
-                CreateTaskCommand(
-                    uuid4(), "a", due_on=date(2026, 2, 2), repeat="sometimes"
-                )
+                CreateTaskCommand(uuid4(), "a", due_on=date(2026, 2, 2), repeat="sometimes")
             )
         with pytest.raises(InvalidTaskError):
             await handler.execute(CreateTaskCommand(uuid4(), "a", repeat="weekly"))

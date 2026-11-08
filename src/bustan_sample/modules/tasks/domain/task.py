@@ -109,9 +109,7 @@ def _valid_title(title: str) -> str:
     if not title:
         raise InvalidTaskError("the title must contain text")
     if len(title) > TITLE_MAX_LENGTH:
-        raise InvalidTaskError(
-            f"the title must not be longer than {TITLE_MAX_LENGTH} characters"
-        )
+        raise InvalidTaskError(f"the title must not be longer than {TITLE_MAX_LENGTH} characters")
     return title
 
 

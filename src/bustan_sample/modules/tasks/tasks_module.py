@@ -35,9 +35,7 @@ def _task_repository(database: Database) -> TaskRepository:
     imports=[ClockModule, DatabaseModule, EventsModule, IdentityModule],
     controllers=[TasksController],
     providers=[
-        FactoryProvider(
-            provide=TaskRepository, use_factory=_task_repository, inject=(Database,)
-        ),
+        FactoryProvider(provide=TaskRepository, use_factory=_task_repository, inject=(Database,)),
         ClassProvider(provide=RecurrenceParser, use_class=RuleBasedRecurrenceParser),
         CreateTaskHandler,
         UpdateTaskHandler,

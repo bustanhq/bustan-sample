@@ -1,13 +1,13 @@
 import asyncio
 
-from support.fakes import RecordingJobQueue, RecordingMailer
-
 from bustan_sample.modules.identity.jobs.send_welcome_email_job import (
     MAX_ATTEMPTS,
     SUBJECT,
     SendWelcomeEmailHandler,
     SendWelcomeEmailJob,
 )
+
+from support.fakes import RecordingJobQueue, RecordingMailer
 
 
 def test_the_handler_registers_with_retries() -> None:

@@ -43,6 +43,4 @@ class PurgeRevokedTokensHandler:
 
     async def run(self, job: PurgeRevokedTokensJob) -> None:
         removed = await self._revoked.purge(self._clock.now())
-        self._logger.record(
-            LogLevel.LOG, "revoked tokens purged", fields={"removed": removed}
-        )
+        self._logger.record(LogLevel.LOG, "revoked tokens purged", fields={"removed": removed})

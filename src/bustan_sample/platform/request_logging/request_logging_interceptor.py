@@ -9,6 +9,8 @@ from bustan import (
     LogLevel,
 )
 
+SKIPPED_PREFIX = "/health/"
+
 
 @Injectable()
 class RequestLoggingInterceptor(Interceptor):
@@ -22,6 +24,11 @@ class RequestLoggingInterceptor(Interceptor):
         self._logger = Logger("RequestLogging")
 
     async def intercept(self, context: ExecutionContext, next: CallHandler) -> object:
+        request = context.request
+        # A probe comes each few seconds. A record for each probe hides the
+        # records of the real requests.
+        if request is not None and request.path.startswith(SKIPPED_PREFIX):
+            return await next.handle()
         started = time.perf_counter()
         outcome = "error"
         try:
@@ -29,7 +36,6 @@ class RequestLoggingInterceptor(Interceptor):
             outcome = "ok"
             return result
         finally:
-            request = context.request
             handler = getattr(context.get_handler(), "__name__", "?")
             self._logger.record(
                 LogLevel.LOG,

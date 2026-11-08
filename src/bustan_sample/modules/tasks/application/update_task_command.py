@@ -35,9 +35,7 @@ class UpdateTaskCommand:
 class UpdateTaskHandler:
     """Changes a task. When a recurring task becomes done, adds the next task."""
 
-    def __init__(
-        self, repository: TaskRepository, clock: Clock, parser: RecurrenceParser
-    ) -> None:
+    def __init__(self, repository: TaskRepository, clock: Clock, parser: RecurrenceParser) -> None:
         self._repository = repository
         self._clock = clock
         self._parser = parser
@@ -46,9 +44,7 @@ class UpdateTaskHandler:
         task = await self._repository.get(command.owner_id, command.task_id)
         if task is None:
             raise TaskNotFoundError(command.task_id)
-        recurrence = (
-            None if command.repeat is None else await self._parser.parse(command.repeat)
-        )
+        recurrence = None if command.repeat is None else await self._parser.parse(command.repeat)
         was_done = task.status is TaskStatus.DONE
         now = self._clock.now()
         if command.title is not None:

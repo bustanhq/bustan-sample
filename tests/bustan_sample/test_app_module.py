@@ -15,9 +15,7 @@ SignUp = Callable[[str], dict[str, str]]
 async def _served_routes() -> set[tuple[object, object]]:
     compiled = await create_testing_module(AppModule).compile()
     try:
-        return {
-            (route["controller"], route["path"]) for route in compiled.snapshot_routes()
-        }
+        return {(route["controller"], route["path"]) for route in compiled.snapshot_routes()}
     finally:
         await compiled.close()
 
@@ -52,3 +50,18 @@ def test_the_backend_selects_where_the_data_goes(
         tasks = connection.execute("SELECT title FROM tasks").fetchall()
     assert users == [("ada@example.com",)]
     assert len(tasks) == 1
+
+
+def test_the_probes_answer_up_without_a_token(client: AsgiTestClient) -> None:
+    live = client.get("/health/live")
+    ready = client.get("/health/ready")
+    assert (live.status_code, ready.status_code) == (200, 200)
+    assert ready.json()["status"] == "up"
+
+
+def test_the_readiness_probe_checks_the_database_only_with_sqlite(
+    client: AsgiTestClient, request: pytest.FixtureRequest
+) -> None:
+    checks = client.get("/health/ready").json()["checks"]
+    backend = request.node.callspec.params["client"]
+    assert ("database" in checks) is (backend == "sqlite")

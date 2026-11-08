@@ -17,9 +17,7 @@ Description = Annotated[
 ]
 Repeat = Annotated[
     str,
-    StringConstraints(
-        strip_whitespace=True, min_length=1, max_length=REPEAT_MAX_LENGTH
-    ),
+    StringConstraints(strip_whitespace=True, min_length=1, max_length=REPEAT_MAX_LENGTH),
     Field(
         description='A repeat phrase, for example "weekly" or "every 2 weeks on Monday".'
         " A recurring task must have a due date.",

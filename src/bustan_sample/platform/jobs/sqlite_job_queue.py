@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import dataclasses
 import json
 from dataclasses import dataclass
@@ -8,13 +9,14 @@ from typing import Any, cast
 from bustan import ConfigService, Injectable, Logger, LogLevel
 
 from bustan_sample.platform.clock import Clock
-from bustan_sample.platform.database import Database, to_text
+from bustan_sample.platform.database import Database, Migration, to_text
 
 from .job_queue import FailedJob, JobHandler, JobQueue
 
 SHUTDOWN_TIMEOUT_SECONDS = 10.0
 
-_SCHEMA = """
+# Add a migration with the next version for each change. Never edit one.
+_V1 = """
 CREATE TABLE IF NOT EXISTS jobs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     type TEXT NOT NULL,
@@ -28,6 +30,7 @@ CREATE TABLE IF NOT EXISTS jobs (
 );
 CREATE INDEX IF NOT EXISTS jobs_ready ON jobs (status, run_after);
 """
+MIGRATIONS = (Migration(1, "create the table jobs", _V1),)
 
 
 @dataclass(frozen=True, slots=True)
@@ -102,26 +105,21 @@ class SqliteJobQueue(JobQueue):
 
     async def failed_jobs(self) -> list[FailedJob]:
         rows = await self._database.fetch_all(
-            "SELECT type, payload, attempt, error FROM jobs WHERE status = 'failed' "
-            "ORDER BY id"
+            "SELECT type, payload, attempt, error FROM jobs WHERE status = 'failed' ORDER BY id"
         )
         return [
-            FailedJob(
-                self._load(row["type"], row["payload"]), row["attempt"], row["error"]
-            )
+            FailedJob(self._load(row["type"], row["payload"]), row["attempt"], row["error"])
             for row in rows
             if row["type"] in self._registrations
         ]
 
     async def on_module_init(self) -> None:
-        await self._database.execute_script(_SCHEMA)
+        await self._database.migrate("jobs.queue", MIGRATIONS)
 
     async def on_application_bootstrap(self) -> None:
         self._stopping = False
         self._wake = asyncio.Event()
-        self._workers = [
-            asyncio.create_task(self._work()) for _ in range(self._worker_count)
-        ]
+        self._workers = [asyncio.create_task(self._work()) for _ in range(self._worker_count)]
 
     async def on_application_shutdown(self, signal: str | None) -> None:
         # The workers claim no new job. The queued jobs stay in the table for
@@ -174,16 +172,12 @@ class SqliteJobQueue(JobQueue):
             # A database error must not stop the worker. A claimed job that did
             # not end runs again after its lease.
             except Exception as exc:  # noqa: BLE001
-                self._logger.record(
-                    LogLevel.ERROR, "job worker error", fields={"error": repr(exc)}
-                )
+                self._logger.record(LogLevel.ERROR, "job worker error", fields={"error": repr(exc)})
             finally:
                 self._busy -= 1
             if claimed is None:
-                try:
+                with contextlib.suppress(TimeoutError):
                     await asyncio.wait_for(wake.wait(), self._poll)
-                except TimeoutError:
-                    pass
 
     async def _claim(self) -> tuple[int, str, str, int] | None:
         if not self._registrations:
@@ -220,9 +214,7 @@ class SqliteJobQueue(JobQueue):
             await self._fail(job_id, name, attempt, registration.max_attempts, exc)
             return
         await self._database.execute("DELETE FROM jobs WHERE id = ?", (job_id,))
-        self._logger.record(
-            LogLevel.LOG, "job done", fields={"job": name, "attempt": attempt}
-        )
+        self._logger.record(LogLevel.LOG, "job done", fields={"job": name, "attempt": attempt})
 
     async def _fail(
         self, job_id: int, name: str, attempt: int, max_attempts: int, exc: Exception

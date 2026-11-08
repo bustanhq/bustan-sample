@@ -26,6 +26,8 @@ def test_the_document_has_each_route_the_schemas_and_the_bearer_scheme(
         "/identity/me",
         "/tasks",
         "/tasks/{task_id}",
+        "/health/live",
+        "/health/ready",
     }
     assert {"TaskResponse", "UserResponse", "TokenResponse"} <= set(
         document["components"]["schemas"]

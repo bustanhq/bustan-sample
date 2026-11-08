@@ -8,7 +8,6 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
-from support.database import BACKENDS, open_sqlite
 
 from bustan_sample.modules.tasks.domain.recurrence import Frequency, RecurrenceRule
 from bustan_sample.modules.tasks.domain.task import Task, TaskStatus
@@ -19,6 +18,8 @@ from bustan_sample.modules.tasks.infra.in_memory_task_repository import (
 from bustan_sample.modules.tasks.infra.sqlite_task_repository import (
     SqliteTaskRepository,
 )
+
+from support.database import BACKENDS, open_sqlite
 
 T0 = datetime(2026, 1, 1, 9, 0, tzinfo=UTC)
 ADA, BOB = uuid4(), uuid4()
@@ -80,9 +81,7 @@ def test_find_keeps_the_creation_sequence_and_filters_on_status(
     asyncio.run(scenario())
 
 
-def test_tasks_with_the_same_time_keep_the_save_sequence(
-    backend: str, tmp_path: Path
-) -> None:
+def test_tasks_with_the_same_time_keep_the_save_sequence(backend: str, tmp_path: Path) -> None:
     async def scenario() -> None:
         async with _repository(backend, tmp_path / "test.db") as repository:
             for title in ("first", "second", "third"):
@@ -114,5 +113,18 @@ def test_remove_tells_if_the_task_was_there(backend: str, tmp_path: Path) -> Non
             assert await repository.remove(ADA, task.id) is True
             assert await repository.remove(ADA, task.id) is False
             assert await repository.get(ADA, uuid4()) is None
+
+    asyncio.run(scenario())
+
+
+def test_limit_and_offset_give_one_page(backend: str, tmp_path: Path) -> None:
+    async def scenario() -> None:
+        async with _repository(backend, tmp_path / "test.db") as repository:
+            for number in range(5):
+                await repository.save(Task.create(ADA, f"t{number}", "", None, T0))
+            page = await repository.find(ADA, limit=2, offset=1)
+            rest = await repository.find(ADA, offset=3)
+            assert [t.title for t in page] == ["t1", "t2"]
+            assert [t.title for t in rest] == ["t3", "t4"]
 
     asyncio.run(scenario())

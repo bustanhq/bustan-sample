@@ -16,12 +16,13 @@ from bustan_sample.modules.tasks.listeners.on_user_registered import (
     OnUserRegistered,
 )
 from bustan_sample.platform.clock import FixedClock
-from bustan_sample.platform.events import EventBus
+
+from support.fakes import memory_event_bus
 
 
 def test_a_new_user_gets_a_starter_task() -> None:
     async def scenario() -> None:
-        events, repository, clock = EventBus(), InMemoryTaskRepository(), FixedClock()
+        events, repository, clock = memory_event_bus(), InMemoryTaskRepository(), FixedClock()
         create_task = CreateTaskHandler(repository, clock, RuleBasedRecurrenceParser())
         OnUserRegistered(events, create_task).on_module_init()
         user_id = uuid4()

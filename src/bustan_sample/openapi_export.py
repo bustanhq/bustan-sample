@@ -27,9 +27,7 @@ def render() -> str:
     response = AsgiTestClient(create_asgi_app()).get(DOCUMENT_PATH)
     if response.status_code != 200:
         raise RuntimeError(f"GET {DOCUMENT_PATH} gave {response.status_code}")
-    return yaml.safe_dump(
-        response.json(), sort_keys=False, allow_unicode=False, width=100
-    )
+    return yaml.safe_dump(response.json(), sort_keys=False, allow_unicode=False, width=100)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -37,9 +35,7 @@ def main(argv: list[str] | None = None) -> int:
         prog="bustan-sample-openapi",
         description="Write the OpenAPI document of the application to a YAML file.",
     )
-    parser.add_argument(
-        "--output", type=Path, default=DEFAULT_OUTPUT, help="default: %(default)s"
-    )
+    parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT, help="default: %(default)s")
     parser.add_argument(
         "--check",
         action="store_true",
@@ -51,8 +47,7 @@ def main(argv: list[str] | None = None) -> int:
         current = args.output.read_text() if args.output.exists() else None
         if current != text:
             print(
-                f"{args.output} does not agree with the code. "
-                "Run: uv run bustan-sample-openapi",
+                f"{args.output} does not agree with the code. Run: uv run bustan-sample-openapi",
                 file=sys.stderr,
             )
             return 1

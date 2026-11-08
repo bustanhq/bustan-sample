@@ -47,9 +47,7 @@ class RuleBasedRecurrenceParser(RecurrenceParser):
         text = _ALIASES.get(text, text)
         weekday_only = _EVERY_WEEKDAY.match(text)
         if weekday_only is not None and weekday_only["weekday"] in _WEEKDAYS:
-            return RecurrenceRule(
-                Frequency.WEEKLY, weekday=_WEEKDAYS[weekday_only["weekday"]]
-            )
+            return RecurrenceRule(Frequency.WEEKLY, weekday=_WEEKDAYS[weekday_only["weekday"]])
         match = _EVERY_UNIT.match(text)
         if match is None:
             raise InvalidTaskError(

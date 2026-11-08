@@ -23,6 +23,4 @@ class OnUserRegistered:
         self._events.subscribe(UserRegistered, self.handle)
 
     async def handle(self, event: UserRegistered) -> None:
-        await self._jobs.enqueue(
-            SendWelcomeEmailJob(user_id=str(event.user_id), email=event.email)
-        )
+        await self._jobs.enqueue(SendWelcomeEmailJob(user_id=str(event.user_id), email=event.email))

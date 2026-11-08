@@ -14,3 +14,9 @@ wheels/
 
 # Local data, for example the SQLite database
 /var/
+*.db
+*.db-shm
+*.db-wal
+
+# Personal lefthook additions
+lefthook-local.yml

@@ -28,14 +28,20 @@ class InMemoryTaskRepository(TaskRepository):
         return replace(stored)
 
     async def find(
-        self, owner_id: UUID, status: TaskStatus | None = None
+        self,
+        owner_id: UUID,
+        status: TaskStatus | None = None,
+        limit: int | None = None,
+        offset: int = 0,
     ) -> list[Task]:
         tasks = sorted(self._tasks.values(), key=lambda task: task.created_at)
-        return [
+        found = [
             replace(task)
             for task in tasks
             if task.owner_id == owner_id and (status is None or task.status is status)
         ]
+        end = None if limit is None else offset + limit
+        return found[offset:end]
 
     async def remove(self, owner_id: UUID, task_id: UUID) -> bool:
         if await self.get(owner_id, task_id) is None:

@@ -26,11 +26,17 @@ class TaskRepository(ABC):
 
     @abstractmethod
     async def find(
-        self, owner_id: UUID, status: TaskStatus | None = None
+        self,
+        owner_id: UUID,
+        status: TaskStatus | None = None,
+        limit: int | None = None,
+        offset: int = 0,
     ) -> list[Task]:
         """Return the tasks of this owner in the sequence of creation.
 
-        If status is given, return only the tasks with that status.
+        If status is given, return only the tasks with that status. Skip the
+        first offset tasks, and return limit tasks or fewer (all if limit is
+        None).
         """
 
     @abstractmethod

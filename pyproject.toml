@@ -1,7 +1,7 @@
 [project]
 name = "bustan-sample"
 version = "0.1.0"
-description = "Add your description here"
+description = "A sample bustan API: tasks with recurrence, JWT identity, events, jobs, memory or SQLite storage"
 readme = "README.md"
 authors = [
     { name = "mosesgameli", email = "mosesgameli20@gmail.com" }
@@ -18,9 +18,7 @@ dependencies = [
 ]
 
 [project.scripts]
-start = "bustan_sample.app_main:main"
-dev = "bustan_sample.app_main:dev"
-bustan-sample = "bustan_sample:main"
+bustan-sample-serve = "bustan_sample.app_main:main"
 bustan-sample-openapi = "bustan_sample.openapi_export:main"
 
 [build-system]
@@ -44,3 +42,15 @@ testpaths = ["tests"]
 # its path. tests/ on sys.path makes tests/support importable.
 pythonpath = ["tests"]
 addopts = ["--import-mode=importlib"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+# BLE: a broad except is allowed only with a noqa comment that gives the cause.
+select = ["E", "F", "W", "I", "B", "UP", "RUF", "SIM", "BLE"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["bustan_sample"]
+known-local-folder = ["support"]

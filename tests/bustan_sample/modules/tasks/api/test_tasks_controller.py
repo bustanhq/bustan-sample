@@ -9,9 +9,7 @@ SignUp = Callable[[str], dict[str, str]]
 UNKNOWN_ID = "00000000-0000-0000-0000-000000000000"
 
 
-def test_a_new_user_gets_a_starter_task(
-    client: AsgiTestClient, sign_up: SignUp
-) -> None:
+def test_a_new_user_gets_a_starter_task(client: AsgiTestClient, sign_up: SignUp) -> None:
     # sign_up waits for the event handler that adds the task in the background.
     tasks = client.get("/tasks", headers=sign_up("ada@example.com")).json()
     assert [task["title"] for task in tasks] == [STARTER_TITLE]
@@ -52,9 +50,7 @@ def test_get_returns_the_created_task(client: AsgiTestClient, sign_up: SignUp) -
     assert response.json() == created
 
 
-def test_list_filters_on_the_status_query(
-    client: AsgiTestClient, sign_up: SignUp
-) -> None:
+def test_list_filters_on_the_status_query(client: AsgiTestClient, sign_up: SignUp) -> None:
     ada = sign_up("ada@example.com")
     client.post("/tasks", headers=ada, json={"title": "open"})
     done = client.post("/tasks", headers=ada, json={"title": "done"}).json()
@@ -69,20 +65,14 @@ def test_patch_with_null_due_on_removes_the_due_date(
     client: AsgiTestClient, sign_up: SignUp
 ) -> None:
     ada = sign_up("ada@example.com")
-    created = client.post(
-        "/tasks", headers=ada, json={"title": "a", "due_on": "2026-02-01"}
-    ).json()
-    response = client.patch(
-        f"/tasks/{created['id']}", headers=ada, json={"due_on": None}
-    )
+    created = client.post("/tasks", headers=ada, json={"title": "a", "due_on": "2026-02-01"}).json()
+    response = client.patch(f"/tasks/{created['id']}", headers=ada, json={"due_on": None})
     assert response.status_code == 200
     assert response.json()["due_on"] is None
     assert response.json()["title"] == "a"
 
 
-def test_delete_returns_204_and_then_404(
-    client: AsgiTestClient, sign_up: SignUp
-) -> None:
+def test_delete_returns_204_and_then_404(client: AsgiTestClient, sign_up: SignUp) -> None:
     ada = sign_up("ada@example.com")
     created = client.post("/tasks", headers=ada, json={"title": "gone"}).json()
     deleted = client.delete(f"/tasks/{created['id']}", headers=ada)
@@ -91,9 +81,7 @@ def test_delete_returns_204_and_then_404(
     assert again.status_code == 404
 
 
-def test_an_unknown_id_returns_problem_details(
-    client: AsgiTestClient, sign_up: SignUp
-) -> None:
+def test_an_unknown_id_returns_problem_details(client: AsgiTestClient, sign_up: SignUp) -> None:
     response = client.get(f"/tasks/{UNKNOWN_ID}", headers=sign_up("ada@example.com"))
     assert response.status_code == 404
     assert response.headers["content-type"].startswith("application/problem+json")
@@ -147,9 +135,7 @@ def test_a_bad_repeat_or_a_repeat_with_no_due_date_returns_400(
         headers=ada,
         json={"title": "a", "due_on": "2026-02-02", "repeat": "now and then"},
     )
-    no_due_date = client.post(
-        "/tasks", headers=ada, json={"title": "a", "repeat": "daily"}
-    )
+    no_due_date = client.post("/tasks", headers=ada, json={"title": "a", "repeat": "daily"})
     assert unknown.status_code == no_due_date.status_code == 400
     assert "not known" in unknown.json()["detail"]
     assert "due date" in no_due_date.json()["detail"]
@@ -181,3 +167,23 @@ def test_patch_with_null_repeat_stops_the_recurrence(
     ).json()
     response = client.patch(f"/tasks/{task['id']}", headers=ada, json={"repeat": None})
     assert response.json()["repeat"] is None
+
+
+def test_the_list_gives_pages_with_a_next_link(client: AsgiTestClient, sign_up: SignUp) -> None:
+    ada = sign_up("ada@example.com")
+    for number in range(3):
+        client.post("/tasks", headers=ada, json={"title": f"t{number}"})
+    first = client.get("/tasks", headers=ada, params={"limit": 2})
+    assert len(first.json()) == 2
+    assert first.headers["link"] == '</tasks?limit=2&offset=2>; rel="next"'
+    last = client.get("/tasks", headers=ada, params={"limit": 2, "offset": 2})
+    assert [t["title"] for t in last.json()] == ["t1", "t2"]
+    assert "link" not in last.headers
+
+
+def test_a_limit_or_offset_out_of_range_returns_400(
+    client: AsgiTestClient, sign_up: SignUp
+) -> None:
+    ada = sign_up("ada@example.com")
+    for params in ({"limit": 0}, {"limit": 101}, {"offset": -1}):
+        assert client.get("/tasks", headers=ada, params=params).status_code == 400

@@ -7,8 +7,6 @@ from pathlib import Path
 import pytest
 from bustan import ConfigService
 from bustan.testing import AsgiTestClient, create_test_app
-from support.database import BACKENDS
-from support.fakes import RecordingMailer, wait_until
 
 from bustan_sample.modules.identity.domain.password_hasher import PasswordHasher
 from bustan_sample.modules.identity.infra.argon2_password_hasher import (
@@ -16,6 +14,9 @@ from bustan_sample.modules.identity.infra.argon2_password_hasher import (
 )
 from bustan_sample.platform.clock import Clock, FixedClock
 from bustan_sample.platform.mail import Mailer
+
+from support.database import BACKENDS
+from support.fakes import RecordingMailer, wait_until
 
 # ConfigModule.for_root() in bustan_sample.app_module reads the environment
 # when Python imports that file. pytest loads this file before the test files,
@@ -70,9 +71,7 @@ def client(
             "DATABASE_BACKEND": "sqlite",
             "DATABASE_SQLITE_PATH": str(tmp_path / "app.db"),
         }
-        overrides[ConfigService] = ConfigService(
-            AppSettings.model_validate(values).model_dump()
-        )
+        overrides[ConfigService] = ConfigService(AppSettings.model_validate(values).model_dump())
     app = create_test_app(AppModule, provider_overrides=overrides)
     with AsgiTestClient(app) as test_client:
         yield test_client

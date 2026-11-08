@@ -26,7 +26,22 @@ def test_list_gives_the_tasks_of_the_owner_filtered_on_status() -> None:
         handler = ListTasksHandler(repository)
         everything = await handler.execute(ListTasksQuery(ADA))
         done = await handler.execute(ListTasksQuery(ADA, status=TaskStatus.DONE))
-        assert [task.title for task in everything] == ["open", "done"]
-        assert [task.title for task in done] == ["done"]
+        assert [task.title for task in everything.items] == ["open", "done"]
+        assert [task.title for task in done.items] == ["done"]
+        assert everything.next_offset is None
+
+    asyncio.run(scenario())
+
+
+def test_pages_give_the_next_offset_until_the_last_page() -> None:
+    async def scenario() -> None:
+        repository, clock = InMemoryTaskRepository(), FixedClock()
+        for number in range(5):
+            await repository.save(Task.create(ADA, f"t{number}", "", None, clock.now()))
+        handler = ListTasksHandler(repository)
+        first = await handler.execute(ListTasksQuery(ADA, limit=2))
+        last = await handler.execute(ListTasksQuery(ADA, limit=2, offset=4))
+        assert ([t.title for t in first.items], first.next_offset) == (["t0", "t1"], 2)
+        assert ([t.title for t in last.items], last.next_offset) == (["t4"], None)
 
     asyncio.run(scenario())
