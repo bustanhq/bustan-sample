@@ -13,13 +13,17 @@ from bustan_sample.platform.mail import Mailer
 
 
 class RecordingMailer(Mailer):
-    """Keeps each message in a list in place of a send."""
+    """Keeps each message and its idempotency key in place of a send."""
 
     def __init__(self) -> None:
         self.sent: list[tuple[str, str, str]] = []
+        self.keys: list[str | None] = []
 
-    async def send(self, to: str, subject: str, body: str) -> None:
+    async def send(
+        self, to: str, subject: str, body: str, *, idempotency_key: str | None = None
+    ) -> None:
         self.sent.append((to, subject, body))
+        self.keys.append(idempotency_key)
 
 
 class RecordingJobQueue(JobQueue):

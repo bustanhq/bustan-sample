@@ -1,6 +1,6 @@
-from typing import Literal
+from typing import Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class AppSettings(BaseModel):
@@ -25,3 +25,13 @@ class AppSettings(BaseModel):
     JOBS_POLL_SECONDS: float = Field(default=0.5, gt=0, le=60)
     JOBS_LEASE_SECONDS: float = Field(default=300, ge=1, le=86400)
     JOBS_SCHEDULER_ENABLED: bool = True
+
+    MAIL_BACKEND: Literal["log", "resend"] = "log"
+    MAIL_FROM: str = ""
+    MAIL_RESEND_API_KEY: str = ""
+
+    @model_validator(mode="after")
+    def _resend_has_a_key_and_a_sender(self) -> Self:
+        if self.MAIL_BACKEND == "resend" and not (self.MAIL_RESEND_API_KEY and self.MAIL_FROM):
+            raise ValueError("MAIL_BACKEND=resend requires MAIL_RESEND_API_KEY and MAIL_FROM")
+        return self

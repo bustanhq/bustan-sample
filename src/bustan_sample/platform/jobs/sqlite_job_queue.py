@@ -11,7 +11,7 @@ from bustan import ConfigService, Injectable, Logger, LogLevel
 from bustan_sample.platform.clock import Clock
 from bustan_sample.platform.database import Database, Migration, to_text
 
-from .job_queue import FailedJob, JobHandler, JobQueue
+from .job_queue import FailedJob, JobHandler, JobQueue, failure_message, next_retry_delay
 
 SHUTDOWN_TIMEOUT_SECONDS = 10.0
 
@@ -51,8 +51,8 @@ class SqliteJobQueue(JobQueue):
     A claim has a lease of JOBS_LEASE_SECONDS. If the process stops before
     the job ends, a worker takes the job again after the lease. Thus a handler
     can run more than one time for one job, and must give the same result each
-    time. A done job is deleted. A job that fails on each attempt stays in the
-    table with the status failed.
+    time. A done job is deleted. A job that fails on each attempt, or raises
+    PermanentJobError, stays in the table with the status failed.
 
     An enqueue in a transaction (Database.transaction()) joins it: the job
     commits with the data of the transaction, or not at all. Thus a job is
@@ -226,8 +226,8 @@ class SqliteJobQueue(JobQueue):
     async def _fail(
         self, job_id: int, name: str, attempt: int, max_attempts: int, exc: Exception
     ) -> None:
-        if attempt < max_attempts:
-            delay = self._retry_delay * 2 ** (attempt - 1)
+        delay = next_retry_delay(exc, attempt, max_attempts, self._retry_delay)
+        if delay is not None:
             run_after = to_text(self._clock.now() + timedelta(seconds=delay))
             await self._database.execute(
                 "UPDATE jobs SET status = 'queued', attempt = attempt + 1, run_after = ?, "
@@ -251,7 +251,7 @@ class SqliteJobQueue(JobQueue):
         )
         self._logger.record(
             LogLevel.ERROR,
-            "job failed on each attempt",
+            failure_message(exc),
             fields={"job": name, "attempts": attempt, "error": repr(exc)},
         )
 

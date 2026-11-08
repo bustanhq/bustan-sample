@@ -6,7 +6,7 @@ from bustan import ConfigService, Injectable, Logger, LogLevel
 
 from bustan_sample.platform.database import Database
 
-from .job_queue import FailedJob, JobHandler, JobQueue
+from .job_queue import FailedJob, JobHandler, JobQueue, failure_message, next_retry_delay
 
 SHUTDOWN_TIMEOUT_SECONDS = 10.0
 
@@ -29,7 +29,7 @@ class InMemoryJobQueue(JobQueue):
 
     The startup hook starts JOBS_WORKERS workers. A failed job waits
     JOBS_RETRY_DELAY_SECONDS before the second attempt, and two times longer
-    before each next attempt. The shutdown hook waits for the queued jobs for
+    before each next attempt (see next_retry_delay). The shutdown hook waits for the queued jobs for
     SHUTDOWN_TIMEOUT_SECONDS, then cancels the remaining work.
 
     An enqueue in a transaction (Database.transaction()) puts the job in the
@@ -132,8 +132,10 @@ class InMemoryJobQueue(JobQueue):
             await registration.handler(envelope.job)
         # Any error of a job causes a retry, and cannot stop the worker.
         except Exception as exc:  # noqa: BLE001
-            if envelope.attempt < registration.max_attempts:
-                delay = self._retry_delay * 2 ** (envelope.attempt - 1)
+            delay = next_retry_delay(
+                exc, envelope.attempt, registration.max_attempts, self._retry_delay
+            )
+            if delay is not None:
                 self._logger.record(
                     LogLevel.WARN,
                     "job failed, retry",
@@ -152,7 +154,7 @@ class InMemoryJobQueue(JobQueue):
             self._failed.append(FailedJob(envelope.job, envelope.attempt, repr(exc)))
             self._logger.record(
                 LogLevel.ERROR,
-                "job failed on each attempt",
+                failure_message(exc),
                 fields={"job": name, "attempts": envelope.attempt, "error": repr(exc)},
             )
             return

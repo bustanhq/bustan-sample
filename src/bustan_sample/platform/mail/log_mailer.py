@@ -8,13 +8,16 @@ class LogMailer(Mailer):
     """Writes a log record in place of an email, for development.
 
     The record gives the subject and a masked recipient. It never gives the
-    body, because a body can contain personal data or a secret link.
+    body, because a body can contain personal data or a secret link. The
+    idempotency key has no effect: the log can show a message two times.
     """
 
     def __init__(self) -> None:
         self._logger = Logger("LogMailer")
 
-    async def send(self, to: str, subject: str, body: str) -> None:
+    async def send(
+        self, to: str, subject: str, body: str, *, idempotency_key: str | None = None
+    ) -> None:
         self._logger.record(
             LogLevel.LOG,
             "mail sent",

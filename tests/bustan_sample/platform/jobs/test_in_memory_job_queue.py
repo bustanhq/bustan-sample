@@ -5,7 +5,7 @@ import pytest
 from bustan import ConfigService
 
 from bustan_sample.platform.database import Database
-from bustan_sample.platform.jobs import InMemoryJobQueue
+from bustan_sample.platform.jobs import InMemoryJobQueue, PermanentJobError, RetryJobLater
 
 
 @dataclass(frozen=True)
@@ -135,5 +135,46 @@ def test_a_job_runs_only_after_its_transaction_commits() -> None:
         assert await queue.drain(1)
         assert done == [2]
         await queue.on_application_shutdown(None)
+
+    asyncio.run(scenario())
+
+
+def test_a_permanent_error_fails_the_job_with_no_retry() -> None:
+    async def scenario() -> None:
+        queue, attempts = _queue(), []
+
+        async def refused(job: Work) -> None:
+            attempts.append(job.value)
+            raise PermanentJobError("the request is not valid")
+
+        queue.register(Work, refused, max_attempts=5)
+        await queue.on_application_bootstrap()
+        await queue.enqueue(Work(1))
+        assert await queue.drain(1)
+        await queue.on_application_shutdown(None)
+        assert attempts == [1]
+        [failed] = queue.failed
+        assert failed.attempts == 1
+
+    asyncio.run(scenario())
+
+
+def test_retry_job_later_waits_before_the_next_attempt() -> None:
+    async def scenario() -> None:
+        queue, attempts = _queue(), []
+        loop = asyncio.get_running_loop()
+
+        async def busy_once(job: Work) -> None:
+            attempts.append(loop.time())
+            if len(attempts) == 1:
+                raise RetryJobLater(0.05)
+
+        queue.register(Work, busy_once)
+        await queue.on_application_bootstrap()
+        await queue.enqueue(Work(1))
+        assert await queue.drain(1)
+        await queue.on_application_shutdown(None)
+        first, second = attempts
+        assert second - first >= 0.05
 
     asyncio.run(scenario())

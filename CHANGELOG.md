@@ -19,6 +19,9 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `Database.transaction()` as one unit of work: each statement of the task joins it, with `after_commit()` and `after_rollback()` callbacks. A job enqueued in a transaction starts after the commit.
 - Idempotency keys (`IdempotencyKeys`, in memory or in SQLite): each user gets one starter task and one welcome email, also if a job runs two times.
 - A recurring task that becomes done and its next task commit in one transaction.
+- External APIs: `HttpClientFactory` and `HttpClient` on httpx2, with timeouts, connection limits, the correlation id and one log record for each call. `ExternalServiceError` tells if a retry can succeed.
+- `MAIL_BACKEND=resend`: the welcome email goes through the Resend API, with the idempotency key of the job in the `Idempotency-Key` header.
+- `PermanentJobError` fails a job with no retry. `RetryJobLater` sets the wait before the next attempt.
 - `DATABASE_BACKEND=memory|sqlite`. With SQLite, the tasks, users, revoked tokens, jobs, event deliveries, schedule runs, idempotency keys and rate-limit counts survive a restart. Processes on one host share them.
 - Versioned SQLite migrations for each component.
 - Rate limits: 300 requests a minute for each client, and 10 a minute on login and register.

@@ -7,7 +7,7 @@ from pathlib import Path
 
 from bustan_sample.platform.clock import FixedClock
 from bustan_sample.platform.database import Database, to_text
-from bustan_sample.platform.jobs import SqliteJobQueue
+from bustan_sample.platform.jobs import PermanentJobError, RetryJobLater, SqliteJobQueue
 
 from support.database import open_sqlite, sqlite_config
 
@@ -178,5 +178,45 @@ def test_a_job_in_a_rolled_back_transaction_leaves_no_row(tmp_path: Path) -> Non
             async with database.transaction():
                 await queue.enqueue(Work(2))
             assert len(await database.fetch_all("SELECT id FROM jobs")) == 1
+
+    asyncio.run(scenario())
+
+
+def test_a_permanent_error_fails_the_job_with_no_retry(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        path, attempts = tmp_path / "test.db", []
+
+        async def refused(job: Work) -> None:
+            attempts.append(job.value)
+            raise PermanentJobError("the request is not valid")
+
+        async with (
+            open_sqlite(path) as database,
+            _started(database, path, FixedClock(), refused, 5) as queue,
+        ):
+            await queue.enqueue(Work(1))
+            assert await queue.drain(2)
+            [failed] = await queue.failed_jobs()
+        assert attempts == [1]
+        assert failed.attempts == 1
+
+    asyncio.run(scenario())
+
+
+def test_retry_job_later_sets_the_time_of_the_next_attempt(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        path, clock = tmp_path / "test.db", FixedClock()
+
+        async def busy(job: Work) -> None:
+            raise RetryJobLater(30)
+
+        async with open_sqlite(path) as database:
+            async with _started(database, path, clock, busy) as queue:
+                await queue.enqueue(Work(1))
+                # The job is due again only after 30 s of the fixed clock.
+                assert await queue.drain(2)
+            [row] = await database.fetch_all("SELECT status, attempt, run_after FROM jobs")
+        assert (row["status"], row["attempt"]) == ("queued", 2)
+        assert row["run_after"] == to_text(clock.now() + timedelta(seconds=30))
 
     asyncio.run(scenario())
