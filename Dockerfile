@@ -7,7 +7,7 @@
 # The digests pin one build of each. Dependabot proposes a new digest each
 # week. The two stages must have the same digest date, thus the same Python.
 
-FROM cgr.dev/chainguard/python:latest-dev@sha256:898360ca56a2a65c3facdd36a4e6151133a580aa367195261554e82948921ff1 AS build
+FROM cgr.dev/chainguard/python:latest-dev@sha256:2f28d53bc0da2b0dcaabc5fc7aab2a69730466a9da4ffaa9bcf3019c3ff9905a AS build
 
 # The -dev image has a shell and a package manager, for the build only.
 USER root
@@ -32,7 +32,7 @@ RUN uv sync --frozen --no-dev && mkdir -p /app/var
 
 # The runtime image has no shell and no package manager. It runs as the user
 # nonroot (65532).
-FROM cgr.dev/chainguard/python:latest@sha256:1a00964779bf570a8cb2ea4fa086614af19c35069029785c08fcec0c50b66ac0
+FROM cgr.dev/chainguard/python:latest@sha256:1f18c1d5b8b986ee00542f2528899b1b68484b9991a80d7c5bcb819e931ddf69
 
 WORKDIR /app
 COPY --from=build --chown=65532:65532 /app/.venv /app/.venv
